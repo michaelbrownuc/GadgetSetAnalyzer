@@ -15,9 +15,8 @@ The analyzer component is an automated tool for gathering security oriented data
 ## Dependencies
 The static analyzer is dependent upon the following third party packages:
 
- 1. ROPgadget - for collecting gadget based information from binaries
- 2. Microgadget Scanner - limited release tool used determining expressivity of gadget sets.
- 3. angr - for finding source code functions associated with introduced gadgets.
+ 1. ROPgadget (SRI verison) - for collecting gadget based information from binaries.
+ 2. angr - for finding source code functions associated with introduced gadgets.
 
 ## Installing
 To install the analyzer:
