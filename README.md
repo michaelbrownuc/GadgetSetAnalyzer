@@ -39,5 +39,5 @@ The analyzer has 2 required inputs:
 
 Example invocation:
 ```
-python analyzer.py --output_metrics --output_addresses ./originals/date/date-8.21 "{'Aggressive':'./variants/date/date-8.21.reduced'}"
+python GSA.py --output_metrics --output_addresses ./originals/date/date-8.21 "{'Aggressive':'./variants/date/date-8.21.reduced'}"
 ```
