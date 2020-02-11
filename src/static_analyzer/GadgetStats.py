@@ -249,11 +249,11 @@ class GadgetStats(object):
                                              int(variant.simpleTuringCompleteClasses)
 
         # Calculate gadget locality
-        commonGadgets = GadgetStats.findEqualGadgets(original.ROPGadgets, variant.ROPGadgets) +\
+        self.localGadgets = GadgetStats.findEqualGadgets(original.ROPGadgets, variant.ROPGadgets) +\
                         GadgetStats.findEqualGadgets(original.JOPGadgets, variant.JOPGadgets) +\
                         GadgetStats.findEqualGadgets(original.SysGadgets, variant.SysGadgets)
         totalGadgets = len(variant.ROPGadgets) + len(variant.JOPGadgets) + len(variant.SysGadgets)
-        self.gadgetLocality = commonGadgets / totalGadgets
+        self.gadgetLocality = self.localGadgets / totalGadgets
 
         #self.printStats()
 

@@ -259,7 +259,6 @@ if args.output_metrics:
 
     # Output File 6: Overall Gadget Locality
     file_lines = ["Package Variant,Gadget Locality\r"]
-    file_lines.append(original.name + ",NA\r")
 
     for stat in stats:
         stat_locality = stat.variant.name + "," + rate_format.format(stat.gadgetLocality) + "\r"
