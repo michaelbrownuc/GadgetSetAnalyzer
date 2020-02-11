@@ -19,7 +19,7 @@ class GadgetSet(object):
     The GadgetSet class is initialized from a binary file and contains information derived from static analysis tools.
     """
 
-    galityPath = "/home/michael/gality/bin/"
+    galityPath = "/usr/local/gality/bin/"
 
     def __init__(self, name, filepath, createCFG):
         """
