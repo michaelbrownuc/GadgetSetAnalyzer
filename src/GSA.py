@@ -271,6 +271,32 @@ if args.output_metrics:
     except OSError as osErr:
         print(osErr)
 
+    # Output File 7: Average Gadget Quality (and count of quality functional gadgets)
+    file_lines = ["Package Variant,Quality ROP Gadgets,Average ROP Gadget Quality,Quality JOP Gadgets,Average JOP Gadget Quality,Quality COP Gadgets,Average COP Gadget Quality\r"]
+
+    orig_quality = original.name + "," + str(original.keptQualityROPGadgets) + "," + str(original.averageROPQuality)
+    orig_quality += "," + str(original.keptQualityJOPGadgets) + "," + str(original.averageJOPQuality)
+    orig_quality += "," + str(original.keptQualityCOPGadgets) + "," + str(original.averageCOPQuality) + "\r"
+    file_lines.append(orig_quality)
+
+    for stat in stats:
+        stat_quality = stat.variant.name + "," + str(stat.variant.keptQualityROPGadgets) + " (" + str(stat.keptQualityROPCountDiff) + "),"
+        stat_quality += str(stat.variant.averageROPQuality) + " (" + str(stat.averageROPQualityDiff) + "),"
+        stat_quality += str(stat.variant.keptQualityJOPGadgets) + " (" + str(stat.keptQualityJOPCountDiff) + "),"
+        stat_quality += str(stat.variant.averageJOPQuality) + " (" + str(stat.averageJOPQualityDiff) + "),"
+        stat_quality += str(stat.variant.keptQualityCOPGadgets) + " (" + str(stat.keptQualityCOPCountDiff) + "),"
+        stat_quality += str(stat.variant.averageCOPQuality) + " (" + str(stat.averageCOPQualityDiff) + ")\r"
+        file_lines.append(stat_quality)
+
+    try:
+        file = open(directory_name + "/Gadget Quality.csv", "w")
+        file.writelines(file_lines)
+        file.close()
+    except OSError as osErr:
+        print(osErr)
+
+
+# Output File 8: Suspected function names containing introduced special purpose gadgets.
 if args.output_addresses:
     print("Writing function names associated with special purpose gadgets to files.")
     file_lines = []

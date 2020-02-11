@@ -255,6 +255,15 @@ class GadgetStats(object):
         totalGadgets = len(variant.ROPGadgets) + len(variant.JOPGadgets) + len(variant.SysGadgets)
         self.gadgetLocality = self.localGadgets / totalGadgets
 
+	# Calculate gadget quality
+        self.keptQualityROPCountDiff = original.keptQualityROPGadgets - variant.keptQualityROPGadgets
+        self.keptQualityJOPCountDiff = original.keptQualityJOPGadgets - variant.keptQualityJOPGadgets
+        self.keptQualityCOPCountDiff = original.keptQualityCOPGadgets - variant.keptQualityCOPGadgets
+
+        self.averageROPQualityDiff = original.averageROPQuality - variant.averageROPQuality
+        self.averageJOPQualityDiff = original.averageJOPQuality - variant.averageJOPQuality
+        self.averageCOPQualityDiff = original.averageCOPQuality - variant.averageCOPQuality
+
         #self.printStats()
 
     def printStats(self):
@@ -345,6 +354,16 @@ class GadgetStats(object):
         print("Reduction Rate: " + rate_format.format(self.COPIntrastackPivotsCountReduction))
         print("Introduced Count: " + str(len(self.COPIntrastackPivotsIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.COPIntrastackPivotsIntroductionRate))
+	print("======================================================================")
+        print("ROP Gadget Quality:")
+        print("ROP Count Difference: " + str(self.keptQualityROPCountDiff))
+        print("ROP Average Quality Difference: " + str(self.averageROPQualityDiff))
+        print("JOP Gadget Quality:")
+        print("JOP Count Difference: " + str(self.keptQualityJOPCountDiff))
+        print("JOP Average Quality Difference: " + str(self.averageJOPQualityDiff))
+        print("COP Gadget Quality:")
+        print("COP Count Difference: " + str(self.keptQualityCOPCountDiff))
+        print("COP Average Quality Difference: " + str(self.averageCOPQualityDiff))
 
     @staticmethod
     def findEqualGadgets(originalList, variantList):

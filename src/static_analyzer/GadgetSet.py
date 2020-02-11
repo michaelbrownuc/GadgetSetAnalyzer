@@ -5,6 +5,7 @@ Gadget Set Class
 # Standard Library Imports
 import subprocess
 import itertools
+import os
 
 # Third Party Imports
 import angr
@@ -17,6 +18,8 @@ class GadgetSet(object):
     """
     The GadgetSet class is initialized from a binary file and contains information derived from static analysis tools.
     """
+
+    galityPath = "/home/michael/gality/bin/"
 
     def __init__(self, name, filepath, createCFG):
         """
@@ -44,6 +47,15 @@ class GadgetSet(object):
         self.ROPGadgets = self.parseGadgets("ROP", self.runROPgadget(filepath, "--nojop --nosys"))
         self.JOPGadgets = self.parseGadgets("JOP", self.runROPgadget(filepath, "--norop --nosys"))
         self.SysGadgets = self.parseGadgets("Syscall", self.runROPgadget(filepath, "--norop --nojop"))
+
+	# Run Gality (GT Version) to collect ROP / JOP / COP useful gadget counts and average quality
+        self.keptQualityROPGadgets = 0
+        self.keptQualityJOPGadgets = 0
+        self.keptQualityCOPGadgets = 0
+        self.averageROPQuality = 0.0
+        self.averageJOPQuality = 0.0
+        self.averageCOPQuality = 0.0
+        self.runGality(filepath)
 
         # Filter JOP gadgets
         self.filterJOPGadgets()
@@ -113,6 +125,67 @@ class GadgetSet(object):
 
         # Convert output to standard string.
         return bytestr.decode("utf-8")
+
+    def runGality(self, filepath):
+        """
+        Runs Gality on the total ROPgadget output for the file specified at the filepath. Also parses the produced file
+        and sets the appropriate member variables.
+        :param filepath: path to binary to analyze
+        :return: None
+        """
+        # Run ROPgadget with all engines enabled, and save file to a temp file in the current directory. Then run gality
+        # on that file, saving a new temp file.
+        rg_output = self.runROPgadget(filepath, "")
+
+        try:
+            file = open("gality_temp_input_file.txt", "w")
+            file.write(rg_output)
+            file.close()
+        except OSError as osErr:
+            print(osErr)
+
+        subprocess.run("java -cp " + self.galityPath +
+                        " gality.Program gality_temp_input_file.txt gality_temp_output_file.txt", shell=True)
+
+        # Open the temp file, read the lines.
+        file_lines = []
+
+        try:
+            file = open("gality_temp_output_file.txt", "r")
+            file_lines = file.readlines()
+            file.close()
+        except OSError as osErr:
+            print(osErr)
+
+        # Delete the temp files.
+        try:
+            os.remove("gality_temp_input_file.txt")
+            os.remove("gality_temp_output_file.txt")
+        except OSError as osErr:
+            print(osErr)
+
+        # Parse the lines into the values we want to keep.
+        for line in file_lines:
+            if line.find("Kept") > -1:
+                if line.find("ROP") > -1:
+                    self.keptQualityROPGadgets = int(line[5:line.find("ROP")-1])
+                elif line.find("JOP") > -1:
+                    self.keptQualityJOPGadgets = int(line[5:line.find("JOP")-1])
+                elif line.find("COP") > -1:
+                    self.keptQualityCOPGadgets = int(line[5:line.find("COP")-1])
+                else:
+                    print("Unexpected line encountered while parsing gality results: " + line)
+
+            if line.find("Average") > -1:
+                if line.find("ROP") > -1:
+                    self.averageROPQuality = float(line[line.find(": ") + 2:])
+                elif line.find("JOP") > -1:
+                    self.averageJOPQuality = float(line[line.find(": ") + 2:])
+                elif line.find("COP") > -1:
+                    self.averageCOPQuality = float(line[line.find(": ") + 2:])
+                else:
+                    print("Unexpected line encountered while parsing gality results: " + line)
+
 
     def filterJOPGadgets(self):
         """
@@ -283,7 +356,7 @@ class GadgetSet(object):
                 if is_STG and (reject is not True):
                     self.COPStrongTrampolines.append(gadget)
 
-            # 4. Check for COP Data Loaders. A COPN Loader's first instruction is popad, call target is not \
+            # 4. Check for COP Data Loaders. A COP Loader's first instruction is popad, call target is not \
             #    ebx/ecx/edx/edi, and intermediate instructions do not define ebx/ecx/edx.
             if first_instruction.find("popad") > -1:
                 call_target = last_instruction[last_instruction.find("[") + 1:last_instruction.find("]")]
