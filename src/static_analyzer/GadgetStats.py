@@ -354,7 +354,7 @@ class GadgetStats(object):
         print("Reduction Rate: " + rate_format.format(self.COPIntrastackPivotsCountReduction))
         print("Introduced Count: " + str(len(self.COPIntrastackPivotsIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.COPIntrastackPivotsIntroductionRate))
-	print("======================================================================")
+        print("======================================================================")
         print("ROP Gadget Quality:")
         print("ROP Count Difference: " + str(self.keptQualityROPCountDiff))
         print("ROP Average Quality Difference: " + str(self.averageROPQualityDiff))
