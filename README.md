@@ -2,7 +2,8 @@
 A security-oriented static binary analysis tool for comparing the quantity, quality, and locality of code reuse gadget sets in program variants.
 
 If you use this tool in your research, please cite the following paper:
-Brown, Michael D., and Santosh Pande. "Is less really more? towards better metrics for measuring security improvements realized through software debloating." In 12th {USENIX} Workshop on Cyber Security Experimentation and Test ({CSET} 19). 2019.
+
+**Brown, Michael D., and Santosh Pande. "Is less really more? towards better metrics for measuring security improvements realized through software debloating." In 12th {USENIX} Workshop on Cyber Security Experimentation and Test ({CSET} 19). 2019.**[\[pdf\]](https://www.usenix.org/system/files/cset19-paper_brown.pdf)
 
 ## Description
 The analyzer component is an automated tool for gathering security-oriented data on the effects of software transformation. It takes as input an original software package binary that has not been transformed, and at least one transformed variant of that package. It produces as output the following data files:
