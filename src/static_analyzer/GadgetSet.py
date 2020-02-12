@@ -116,12 +116,12 @@ class GadgetSet(object):
         :param str flags: string containing the flags for execution
         :return: Output from the ROPgadget command as a standard string, None if the data was not collected as expected.
         """
-        # ROPgadget returns 1 during normal operation, so we must catch the CalledProcessError to get the output.
         bytestr = None
         try:
-            subprocess.check_output("ROPgadget --binary " + filepath + " " + flags, shell=True)
+            bytestr = subprocess.check_output("ROPgadget --binary " + filepath + " " + flags, shell=True)
         except subprocess.CalledProcessError as CPE:
-            bytestr = CPE.output
+            print("Error in running ROPgadget with flags:" + flags)
+            print(CPE.output)
 
         # Convert output to standard string.
         return bytestr.decode("utf-8")
