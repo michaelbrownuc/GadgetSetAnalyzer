@@ -42,8 +42,8 @@ To install the analyzer:
 ## Running
 The analyzer has 2 optional inputs:
 
- 1. Output Metrics (--output_metrics): Indicates that the analyzer should produce output files 1-5.
- 2. Output Addresses (--output_addresses): Indicates that the analyzer should produce output file 6.
+ 1. Output Metrics (--output_metrics): Indicates that the analyzer should produce output files 1-7.
+ 2. Output Addresses (--output_addresses): Indicates that the analyzer should produce output file 8.
 
 The analyzer has 2 required inputs:
 
