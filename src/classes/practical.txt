@@ -1,0 +1,619 @@
+classname dec rax/rdi
+dec rax,
+dec eax,
+dec rdi,
+dec edi,
+classname inc rax/rdi
+inc rax,
+inc eax,
+inc rdi,
+inc edi,
+classname pop rax/rdi
+pop rax,
+pop eax,
+pop rdi,
+pop edi,
+classname load esi
+xchg esi, eax
+xchg rsi, rax
+xchg eax, esi
+xchg rax, rsi
+xchg esi, edi
+xchg rsi, rdi
+xchg edi, esi
+xchg rdi, rsi
+pop rsi,
+pop esi,
+mov esi, eax
+mov rsi, rax
+mov esi, edi
+mov rsi, rdi
+lea esi, dword ptr [eax]
+lea esi, dword ptr [edi]
+lea rsi, qword ptr [rax]
+lea rsi, qword ptr [rdi]
+lea rsi, dword ptr [eax]
+lea rsi, dword ptr [edi]
+jmp qword ptr [rax],
+jmp qword ptr [rdi],
+classname xchg eax/edi
+xchg rax, rdi
+xchg eax, edi
+xchg rdi, rax
+xchg edi, eax
+classname jump/push
+jmp qword ptr [rax],
+jmp qword ptr [rsi],
+jmp qword ptr [rdi],
+jmp qword ptr [eax],
+jmp qword ptr [esi],
+jmp qword ptr [edi],
+jmp dword ptr [eax],
+jmp dword ptr [esi],
+jmp dword ptr [edi],
+jmp eax,
+jmp edi,
+jmp rax,
+jmp rdi,
+push eax,
+push edi,
+push rax,
+push rdi,
+classname CF
+clc,
+sahf,
+test rax, rax
+test rax, rdi
+test rax, rsi
+test rdi, rax
+test rdi, rdi
+test rdi, rsi
+test rsi, rax
+test rsi, rdi
+test rsi, rsi
+add rax, rax
+add rax, rdi
+add rax, rsi
+add rdi, rax
+add rdi, rdi
+add rdi, rsi
+add rsi, rax
+add rsi, rdi
+add rsi, rsi
+adc rax, rax
+adc rax, rdi
+adc rax, rsi
+adc rdi, rax
+adc rdi, rdi
+adc rdi, rsi
+adc rsi, rax
+adc rsi, rdi
+adc rsi, rsi
+sub rax, rax
+sub rax, rdi
+sub rax, rsi
+sub rdi, rax
+sub rdi, rdi
+sub rdi, rsi
+sub rsi, rax
+sub rsi, rdi
+sub rsi, rsi
+sbb rax, rax
+sbb rax, rdi
+sbb rax, rsi
+sbb rdi, rax
+sbb rdi, rdi
+sbb rdi, rsi
+sbb rsi, rax
+sbb rsi, rdi
+sbb rsi, rsi
+and rax, rax
+and rax, rdi
+and rax, rsi
+and rdi, rax
+and rdi, rdi
+and rdi, rsi
+and rsi, rax
+and rsi, rdi
+and rsi, rsi
+or rax, rax
+or rax, rdi
+or rax, rsi
+or rdi, rax
+or rdi, rdi
+or rdi, rsi
+or rsi, rax
+or rsi, rdi
+or rsi, rsi
+xor rax, rax
+xor rax, rdi
+xor rax, rsi
+xor rdi, rax
+xor rdi, rdi
+xor rdi, rsi
+xor rsi, rax
+xor rsi, rdi
+xor rsi, rsi
+cmp rax, rax
+cmp rax, rdi
+cmp rax, rsi
+cmp rdi, rax
+cmp rdi, rdi
+cmp rdi, rsi
+cmp rsi, rax
+cmp rsi, rdi
+cmp rsi, rsi
+test eax, eax
+test eax, edi
+test eax, esi
+test edi, eax
+test edi, edi
+test edi, esi
+test esi, eax
+test esi, edi
+test esi, esi
+add eax, eax
+add eax, edi
+add eax, esi
+add edi, eax
+add edi, edi
+add edi, esi
+add esi, eax
+add esi, edi
+add esi, esi
+adc eax, eax
+adc eax, edi
+adc eax, esi
+adc edi, eax
+adc edi, edi
+adc edi, esi
+adc esi, eax
+adc esi, edi
+adc esi, esi
+sub eax, eax
+sub eax, edi
+sub eax, esi
+sub edi, eax
+sub edi, edi
+sub edi, esi
+sub esi, eax
+sub esi, edi
+sub esi, esi
+sbb eax, eax
+sbb eax, edi
+sbb eax, esi
+sbb edi, eax
+sbb edi, edi
+sbb edi, esi
+sbb esi, eax
+sbb esi, edi
+sbb esi, esi
+and eax, eax
+and eax, edi
+and eax, esi
+and edi, eax
+and edi, edi
+and edi, esi
+and esi, eax
+and esi, edi
+and esi, esi
+or eax, eax
+or eax, edi
+or eax, esi
+or edi, eax
+or edi, edi
+or edi, esi
+or esi, eax
+or esi, edi
+or esi, esi
+xor eax, eax
+xor eax, edi
+xor eax, esi
+xor edi, eax
+xor edi, edi
+xor edi, esi
+xor esi, eax
+xor esi, edi
+xor esi, esi
+cmp eax, eax
+cmp eax, edi
+cmp eax, esi
+cmp edi, eax
+cmp edi, edi
+cmp edi, esi
+cmp esi, eax
+cmp esi, edi
+cmp esi, esi
+classname store to memory
+stosd dword ptr [rdi], eax
+stosq qword ptr [rdi], rax
+stosd dword ptr [edi], eax
+stos dword ptr [edi], eax
+mov qword ptr [rax], rdi
+mov qword ptr [rax], rsi
+mov qword ptr [rsi], rax
+mov qword ptr [rsi], rdi
+mov qword ptr [rdi], rax
+mov qword ptr [rdi], rsi
+add qword ptr [rax], rdi
+add qword ptr [rax], rsi
+add qword ptr [rsi], rax
+add qword ptr [rsi], rdi
+add qword ptr [rdi], rax
+add qword ptr [rdi], rsi
+or qword ptr [rax], rdi
+or qword ptr [rax], rsi
+or qword ptr [rsi], rax
+or qword ptr [rsi], rdi
+or qword ptr [rdi], rax
+or qword ptr [rdi], rsi
+mov dword ptr [rax], edi
+mov dword ptr [rax], esi
+mov dword ptr [rsi], eax
+mov dword ptr [rsi], edi
+mov dword ptr [rdi], eax
+mov dword ptr [rdi], esi
+add dword ptr [rax], edi
+add dword ptr [rax], esi
+add dword ptr [rsi], eax
+add dword ptr [rsi], edi
+add dword ptr [rdi], eax
+add dword ptr [rdi], esi
+or dword ptr [rax], edi
+or dword ptr [rax], esi
+or dword ptr [rsi], eax
+or dword ptr [rsi], edi
+or dword ptr [rdi], eax
+or dword ptr [rdi], esi
+mov dword ptr [eax], edi
+mov dword ptr [eax], esi
+mov dword ptr [esi], eax
+mov dword ptr [esi], edi
+mov dword ptr [edi], eax
+mov dword ptr [edi], esi
+add dword ptr [eax], edi
+add dword ptr [eax], esi
+add dword ptr [esi], eax
+add dword ptr [esi], edi
+add dword ptr [edi], eax
+add dword ptr [edi], esi
+or dword ptr [eax], edi
+or dword ptr [eax], esi
+or dword ptr [esi], eax
+or dword ptr [esi], edi
+or dword ptr [edi], eax
+or dword ptr [edi], esi
+classname load/jump to address
+lodsq rax, qword ptr [rsi]
+lods eax, dword ptr [esi]
+lodsd eax, dword ptr [esi]
+lodsd eax, dword ptr [rsi]
+jmp qword ptr [rax],
+jmp qword ptr [rsi],
+jmp qword ptr [rdi],
+jmp qword ptr [eax],
+jmp qword ptr [esi],
+jmp qword ptr [edi],
+jmp dword ptr [eax],
+jmp dword ptr [esi],
+jmp dword ptr [edi],
+mov rax, qword ptr [rsi]
+mov rax, qword ptr [rdi]
+mov rsi, qword ptr [rax]
+mov rsi, qword ptr [rdi]
+mov rdi, qword ptr [rsi]
+mov rdi, qword ptr [rax]
+add rdi, qword ptr [rax]
+add rsi, qword ptr [rax]
+add rax, qword ptr [rsi]
+add rdi, qword ptr [rsi]
+add rax, qword ptr [rdi]
+add rsi, qword ptr [rdi]
+or rdi, qword ptr [rax]
+or rsi, qword ptr [rax]
+or rax, qword ptr [rsi]
+or rdi, qword ptr [rsi]
+or rax, qword ptr [rdi]
+or rsi, qword ptr [rdi]
+mov eax, dword ptr [rsi]
+mov eax, dword ptr [rdi]
+mov esi, dword ptr [rax]
+mov esi, dword ptr [rdi]
+mov edi, dword ptr [rsi]
+mov edi, dword ptr [rax]
+add edi, dword ptr [rax]
+add esi, dword ptr [rax]
+add eax, dword ptr [rsi]
+add edi, dword ptr [rsi]
+add eax, dword ptr [rdi]
+add esi, dword ptr [rdi]
+or edi, dword ptr [rax]
+or esi, dword ptr [rax]
+or eax, dword ptr [rsi]
+or edi, dword ptr [rsi]
+or eax, dword ptr [rdi]
+or esi, dword ptr [rdi]
+mov eax, dword ptr [esi]
+mov eax, dword ptr [edi]
+mov esi, dword ptr [eax]
+mov esi, dword ptr [edi]
+mov edi, dword ptr [esi]
+mov edi, dword ptr [eax]
+add edi, dword ptr [eax]
+add esi, dword ptr [eax]
+add eax, dword ptr [esi]
+add edi, dword ptr [esi]
+add eax, dword ptr [edi]
+add esi, dword ptr [edi]
+or edi, dword ptr [eax]
+or esi, dword ptr [eax]
+or eax, dword ptr [esi]
+or edi, dword ptr [esi]
+or eax, dword ptr [edi]
+or esi, dword ptr [edi]
+adc rax, qword ptr [rsi]
+adc rax, qword ptr [rdi]
+adc rsi, qword ptr [rax]
+adc rsi, qword ptr [rdi]
+adc rdi, qword ptr [rsi]
+adc rdi, qword ptr [rax]
+and rdi, qword ptr [rax]
+and rsi, qword ptr [rax]
+and rax, qword ptr [rsi]
+and rdi, qword ptr [rsi]
+and rax, qword ptr [rdi]
+and rsi, qword ptr [rdi]
+xor rdi, qword ptr [rax]
+xor rsi, qword ptr [rax]
+xor rax, qword ptr [rsi]
+xor rdi, qword ptr [rsi]
+xor rax, qword ptr [rdi]
+xor rsi, qword ptr [rdi]
+adc eax, dword ptr [rsi]
+adc eax, dword ptr [rdi]
+adc esi, dword ptr [rax]
+adc esi, dword ptr [rdi]
+adc edi, dword ptr [rsi]
+adc edi, dword ptr [rax]
+and edi, dword ptr [rax]
+and esi, dword ptr [rax]
+and eax, dword ptr [rsi]
+and edi, dword ptr [rsi]
+and eax, dword ptr [rdi]
+and esi, dword ptr [rdi]
+xor edi, dword ptr [rax]
+xor esi, dword ptr [rax]
+xor eax, dword ptr [rsi]
+xor edi, dword ptr [rsi]
+xor eax, dword ptr [rdi]
+xor esi, dword ptr [rdi]
+adc eax, dword ptr [esi]
+adc eax, dword ptr [edi]
+adc esi, dword ptr [eax]
+adc esi, dword ptr [edi]
+adc edi, dword ptr [esi]
+adc edi, dword ptr [eax]
+and edi, dword ptr [eax]
+and esi, dword ptr [eax]
+and eax, dword ptr [esi]
+and edi, dword ptr [esi]
+and eax, dword ptr [edi]
+and esi, dword ptr [edi]
+xor edi, dword ptr [eax]
+xor esi, dword ptr [eax]
+xor eax, dword ptr [esi]
+xor edi, dword ptr [esi]
+xor eax, dword ptr [edi]
+xor esi, dword ptr [edi]
+sub rax, qword ptr [rsi]
+sub rax, qword ptr [rdi]
+sub rsi, qword ptr [rax]
+sub rsi, qword ptr [rdi]
+sub rdi, qword ptr [rsi]
+sub rdi, qword ptr [rax]
+sbb rdi, qword ptr [rax]
+sbb rsi, qword ptr [rax]
+sbb rax, qword ptr [rsi]
+sbb rdi, qword ptr [rsi]
+sbb rax, qword ptr [rdi]
+sbb rsi, qword ptr [rdi]
+sub eax, dword ptr [rsi]
+sub eax, dword ptr [rdi]
+sub esi, dword ptr [rax]
+sub esi, dword ptr [rdi]
+sub edi, dword ptr [rsi]
+sub edi, dword ptr [rax]
+sbb edi, dword ptr [rax]
+sbb esi, dword ptr [rax]
+sbb eax, dword ptr [rsi]
+sbb edi, dword ptr [rsi]
+sbb eax, dword ptr [rdi]
+sbb esi, dword ptr [rdi]
+sub eax, dword ptr [esi]
+sub eax, dword ptr [edi]
+sub esi, dword ptr [eax]
+sub esi, dword ptr [edi]
+sub edi, dword ptr [esi]
+sub edi, dword ptr [eax]
+sbb edi, dword ptr [eax]
+sbb esi, dword ptr [eax]
+sbb eax, dword ptr [esi]
+sbb edi, dword ptr [esi]
+sbb eax, dword ptr [edi]
+sbb esi, dword ptr [edi]
+classname leave
+leave,
+classname set ebp/rbp
+pop rbp,
+xchg rax, rbp
+xchg rbx, rbp
+xchg rcx, rbp
+xchg rdx, rbp
+xchg rsi, rbp
+xchg rdi, rbp
+xchg rsp, rbp
+xchg rbp, rax
+xchg rbp, rbx
+xchg rbp, rax
+xchg rbp, rcx
+xchg rbp, rdx
+xchg rbp, rsi
+xchg rbp, rdi
+xchg rbp, rsp
+add rbp, qword ptr [rax]
+add rbp, qword ptr [rbx]
+add rbp, qword ptr [rcx]
+add rbp, qword ptr [rdx]
+add rbp, qword ptr [rsi]
+add rbp, qword ptr [rdi]
+add rbp, qword ptr [rsp]
+add rbp, rax
+add rbp, rbx
+add rbp, rcx
+add rbp, rdx
+add rbp, rsi
+add rbp, rdi
+add rbp, rsp
+adc rbp, rax
+adc rbp, rbx
+adc rbp, rcx
+adc rbp, rdx
+adc rbp, rsi
+adc rbp, rdi
+adc rbp, rsp
+adc rbp, qword ptr [rax]
+adc rbp, qword ptr [rbx]
+adc rbp, qword ptr [rcx]
+adc rbp, qword ptr [rdx]
+adc rbp, qword ptr [rsi]
+adc rbp, qword ptr [rdi]
+adc rbp, qword ptr [rsp]
+sub rbp, qword ptr [rax]
+sub rbp, qword ptr [rbx]
+sub rbp, qword ptr [rcx]
+sub rbp, qword ptr [rdx]
+sub rbp, qword ptr [rsi]
+sub rbp, qword ptr [rdi]
+sub rbp, qword ptr [rsp]
+sub rbp, rax
+sub rbp, rbx
+sub rbp, rcx
+sub rbp, rdx
+sub rbp, rsi
+sub rbp, rdi
+sub rbp, rsp
+sbb rbp, rax
+sbb rbp, rbx
+sbb rbp, rcx
+sbb rbp, rdx
+sbb rbp, rsi
+sbb rbp, rdi
+sbb rbp, rsp
+sbb rbp, qword ptr [rax]
+sbb rbp, qword ptr [rbx]
+sbb rbp, qword ptr [rcx]
+sbb rbp, qword ptr [rdx]
+sbb rbp, qword ptr [rsi]
+sbb rbp, qword ptr [rdi]
+sbb rbp, qword ptr [rsp]
+pop ebp,
+xchg eax, ebp
+xchg ebx, ebp
+xchg ecx, ebp
+xchg edx, ebp
+xchg esi, ebp
+xchg edi, ebp
+xchg esp, ebp
+xchg ebp, eax
+xchg ebp, ebx
+xchg ebp, eax
+xchg ebp, ecx
+xchg ebp, edx
+xchg ebp, esi
+xchg ebp, edi
+xchg ebp, esp
+add ebp, dword ptr [rax]
+add ebp, dword ptr [rbx]
+add ebp, dword ptr [rcx]
+add ebp, dword ptr [rdx]
+add ebp, dword ptr [rsi]
+add ebp, dword ptr [rdi]
+add ebp, dword ptr [rsp]
+add ebp, eax
+add ebp, ebx
+add ebp, ecx
+add ebp, edx
+add ebp, esi
+add ebp, edi
+add ebp, esp
+adc ebp, eax
+adc ebp, ebx
+adc ebp, ecx
+adc ebp, edx
+adc ebp, esi
+adc ebp, edi
+adc ebp, esp
+adc ebp, dword ptr [rax]
+adc ebp, dword ptr [rbx]
+adc ebp, dword ptr [rcx]
+adc ebp, dword ptr [rdx]
+adc ebp, dword ptr [rsi]
+adc ebp, dword ptr [rdi]
+adc ebp, dword ptr [rsp]
+sub ebp, dword ptr [rax]
+sub ebp, dword ptr [rbx]
+sub ebp, dword ptr [rcx]
+sub ebp, dword ptr [rdx]
+sub ebp, dword ptr [rsi]
+sub ebp, dword ptr [rdi]
+sub ebp, dword ptr [rsp]
+sub ebp, eax
+sub ebp, ebx
+sub ebp, ecx
+sub ebp, edx
+sub ebp, esi
+sub ebp, edi
+sub ebp, esp
+sbb ebp, eax
+sbb ebp, ebx
+sbb ebp, ecx
+sbb ebp, edx
+sbb ebp, esi
+sbb ebp, edi
+sbb ebp, esp
+sbb ebp, dword ptr [rax]
+sbb ebp, dword ptr [rbx]
+sbb ebp, dword ptr [rcx]
+sbb ebp, dword ptr [rdx]
+sbb ebp, dword ptr [rsi]
+sbb ebp, dword ptr [rdi]
+sbb ebp, dword ptr [rsp]
+add ebp, dword ptr [eax]
+add ebp, dword ptr [ebx]
+add ebp, dword ptr [ecx]
+add ebp, dword ptr [edx]
+add ebp, dword ptr [esi]
+add ebp, dword ptr [edi]
+add ebp, dword ptr [esp]
+adc ebp, dword ptr [eax]
+adc ebp, dword ptr [ebx]
+adc ebp, dword ptr [ecx]
+adc ebp, dword ptr [edx]
+adc ebp, dword ptr [esi]
+adc ebp, dword ptr [edi]
+adc ebp, dword ptr [esp]
+sub ebp, dword ptr [eax]
+sub ebp, dword ptr [ebx]
+sub ebp, dword ptr [ecx]
+sub ebp, dword ptr [edx]
+sub ebp, dword ptr [esi]
+sub ebp, dword ptr [edi]
+sub ebp, dword ptr [esp]
+sbb ebp, dword ptr [eax]
+sbb ebp, dword ptr [ebx]
+sbb ebp, dword ptr [ecx]
+sbb ebp, dword ptr [edx]
+sbb ebp, dword ptr [esi]
+sbb ebp, dword ptr [edi]
+sbb ebp, dword ptr [esp]
+
