@@ -5,6 +5,11 @@ If you use this tool in your research, please cite the following paper:
 
 **Brown, Michael D., and Santosh Pande. "Is less really more? towards better metrics for measuring security improvements realized through software debloating." In 12th {USENIX} Workshop on Cyber Security Experimentation and Test ({CSET} 19). 2019.**[\[pdf\]](https://www.usenix.org/system/files/cset19-paper_brown.pdf)
 
+GSA has been updated to include new metrics since the publication of this paper.  The expanded version of the paper that includes expanded metrics is available here:
+
+**Brown, Michael D., and Santosh Pande. "Is Less Really More? Why Reducing Code Reuse Gadget Counts via
+Software Debloating Doesn’t Necessarily Indicate Improved Security" arXiv:1902.10880v3 [cs.CR]. 2019.**[\[pdf\]](https://arxiv.org/pdf/1902.10880.pdf)
+
 ## Description
 The analyzer component is an automated tool for gathering security-oriented data on the effects of software transformation. It takes as input an original software package binary that has not been transformed, and at least one transformed variant of that package. It produces as output the following data files:
 
@@ -37,8 +42,8 @@ To install the analyzer:
 ## Running
 The analyzer has 2 optional inputs:
 
- 1. Output Metrics (--output_metrics): Indicates that the analyzer should produce output files 1-5.
- 2. Output Addresses (--output_addresses): Indicates that the analyzer should produce output file 6.
+ 1. Output Metrics (--output_metrics): Indicates that the analyzer should produce output files 1-7.
+ 2. Output Addresses (--output_addresses): Indicates that the analyzer should produce output file 8.
 
 The analyzer has 2 required inputs:
 

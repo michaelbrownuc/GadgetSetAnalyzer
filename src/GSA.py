@@ -48,11 +48,6 @@ for key in variants_dict.keys():
     print("Analyzing variant package [" + key + "] located at: " + filepath)
     variants.append(GadgetSet(key, filepath, args.output_addresses))
 
-# Calculate Gadget Stats for the original and each variant
-stats = []
-for variant in variants:
-    stats.append(GadgetStats(original, variant))
-
 # If file output is desired, create an output directory and write it.
 if args.output_metrics or args.output_addresses:
     # Create a timestamped results folder
@@ -67,37 +62,97 @@ if args.output_metrics:
     print("Writing Metrics to files.")
     rate_format = "{:.1%}"
 
+    # Prepare file line arrays
     # Output file 1: Gadget Counts/Reduction, Total and by Category
-    file_lines = ["Package Variant,Total Gadgets,ROP Gadgets,JOP Gadgets,COP Gadgets\r"]
+    file_1_lines = ["Package Variant,Total Gadgets,ROP Gadgets,JOP Gadgets,COP Gadgets\r"]
     orig_counts = original.name + "," + str(len(original.totalUniqueGadgets))
     orig_counts = orig_counts + "," + str(len(original.ROPGadgets))
     orig_counts = orig_counts + "," + str(len(original.JOPGadgets))
     orig_counts = orig_counts + "," + str(len(original.COPGadgets)) + "\r"
-    file_lines.append(orig_counts)
-
-    for stat in stats:
-        stat_counts = stat.variant.name + "," + str(len(stat.variant.totalUniqueGadgets)) + " (" + str(stat.totalUniqueCountDiff) + "; " + rate_format.format(stat.totalUniqueCountReduction) + "),"
-        stat_counts = stat_counts + str(len(stat.variant.ROPGadgets)) + " (" + str(stat.ROPCountDiff) + "; " + rate_format.format(stat.ROPCountReduction) + "),"
-        stat_counts = stat_counts + str(len(stat.variant.JOPGadgets)) + " (" + str(stat.JOPCountDiff) + "; " + rate_format.format(stat.JOPCountReduction) + "),"
-        stat_counts = stat_counts + str(len(stat.variant.COPGadgets)) + " (" + str(stat.COPCountDiff) + "; " + rate_format.format(stat.COPCountReduction) + ")\r"
-        file_lines.append(stat_counts)
-
-    try:
-        file = open(directory_name + "/GadgetCounts_Reduction.csv", "w")
-        file.writelines(file_lines)
-        file.close()
-    except OSError as osErr:
-        print(osErr)
+    file_1_lines.append(orig_counts)
 
     # Output file 2: Gadget Introduction Counts/Rates
-    file_lines = ["Package Variant,Total Gadgets,Total Gadgets Introduced,Total Introduction Rate,ROP Gadgets,ROP Gadgets Introduced,ROP Introduction Rate,JOP Gadgets,JOP Gadgets Introduced,JOP Introduction Rate,COP Gadgets,COP Gadgets Introduced,COP Introduction Rate\r"]
+    file_2_lines = [
+        "Package Variant,Total Gadgets,Total Gadgets Introduced,Total Introduction Rate,ROP Gadgets,ROP Gadgets Introduced,ROP Introduction Rate,JOP Gadgets,JOP Gadgets Introduced,JOP Introduction Rate,COP Gadgets,COP Gadgets Introduced,COP Introduction Rate\r"]
     orig_counts = original.name + "," + str(len(original.totalUniqueGadgets)) + ", , ,"
     orig_counts = orig_counts + str(len(original.ROPGadgets)) + ", , ,"
     orig_counts = orig_counts + str(len(original.JOPGadgets)) + ", , ,"
     orig_counts = orig_counts + str(len(original.COPGadgets)) + "\r"
-    file_lines.append(orig_counts)
+    file_2_lines.append(orig_counts)
 
-    for stat in stats:
+    # Output file #3: Gadget Count Introduction
+    file_3_lines = ["Special Purpose Gadget Count Introduction\r",
+                    "Package Variant,Syscall Gadgets,JOP Dispatcher Gadgets,JOP Dataloader Gadgets,JOP Initializers,JOP Trampolines,COP Dispatcher Gadgets,COP Dataloader Gadgets,COP Initializers,COP Strong Trampoline Gadgets,COP Intra-stack Pivot Gadgets\r"]
+    orig_counts = original.name + "," + str(len(original.SysGadgets))
+    orig_counts = orig_counts + "," + str(len(original.JOPDispatchers))
+    orig_counts = orig_counts + "," + str(len(original.JOPDataLoaders))
+    orig_counts = orig_counts + "," + str(len(original.JOPInitializers))
+    orig_counts = orig_counts + "," + str(len(original.JOPTrampolines))
+    orig_counts = orig_counts + "," + str(len(original.COPDispatchers))
+    orig_counts = orig_counts + "," + str(len(original.COPDataLoaders))
+    orig_counts = orig_counts + "," + str(len(original.COPInitializers))
+    orig_counts = orig_counts + "," + str(len(original.COPStrongTrampolines))
+    orig_counts = orig_counts + "," + str(len(original.COPIntrastackPivots)) + "\r"
+    file_3_lines.append(orig_counts)
+
+    # Output File 4: Special Purpose Gadget Introduction Counts/Rates
+    file_4_lines = ["Special Purpose Gadget Introduction Data\r",
+                    "Package Variant,Syscall Gadgets,Syscall Gadgets Introduced,Syscall Gadget Introduction Rate," +
+                    "JOP Dispatcher Gadgets,JOP Dispatcher Gadgets Introduced,JOP Dispatcher Gadget Introduction Rate," +
+                    "JOP Dataloader Gadgets,JOP Dataloader Gadgets Introduced,JOP Dataloader Gadget Introduction Rate," +
+                    "JOP Initializer Gadgets,JOP Initializer Gadgets Introduced,JOP Initializer Gadget Introduction Rate," +
+                    "JOP Trampoline Gadgets,JOP Trampoline Gadgets Introduced,JOP Trampoline Gadget Introduction Rate," +
+                    "COP Dispatcher Gadgets,COP Dispatcher Gadgets Introduced,COP Dispatcher Gadget Introduction Rate," +
+                    "COP Dataloader Gadgets,COP Dataloader Gadgets Introduced,COP Dataloader Gadget Introduction Rate," +
+                    "COP Initializer Gadgets,COP Initializer Gadgets Introduced,COP Initializer Gadget Introduction Rate," +
+                    "COP Strong Trampoline Gadgets,COP Strong Trampoline Gadgets Introduced,COP Strong Trampoline Gadget Introduction Rate," +
+                    "COP Intra-stack Pivot Gadgets,COP Intra-stack Pivot Gadgets Introduced,COP Intra-stack Pivot Gadget Introduction Rate\r"]
+    orig_counts = original.name + "," + str(len(original.SysGadgets)) + ", , ,"
+    orig_counts = orig_counts + str(len(original.JOPDispatchers)) + ", , ,"
+    orig_counts = orig_counts + str(len(original.JOPDataLoaders)) + ", , ,"
+    orig_counts = orig_counts + str(len(original.JOPInitializers)) + ", , ,"
+    orig_counts = orig_counts + str(len(original.JOPTrampolines)) + ", , ,"
+    orig_counts = orig_counts + str(len(original.COPDispatchers)) + ", , ,"
+    orig_counts = orig_counts + str(len(original.COPDataLoaders)) + ", , ,"
+    orig_counts = orig_counts + str(len(original.COPInitializers)) + ", , ,"
+    orig_counts = orig_counts + str(len(original.COPStrongTrampolines)) + ", , ,"
+    orig_counts = orig_counts + str(len(original.COPIntrastackPivots)) + "\r"
+    file_4_lines.append(orig_counts)
+
+    # Output File 5: Gadget Expressivity Classes Fulfilled By Variant
+    orig_simple_tc = original.simpleTuringCompleteClasses
+    file_5_lines = ["Package Variant,Simple Turing Completeness\r"]
+    orig_counts = original.name + ","
+    orig_counts = orig_counts + str(orig_simple_tc) + "\r"
+    file_5_lines.append(orig_counts)
+
+    # Output File 6: Overall Gadget Locality
+    file_6_lines = ["Package Variant,Gadget Locality\r"]
+
+    # Output File 7: Average Gadget Quality (and count of quality functional gadgets)
+    file_7_lines = ["Package Variant,Quality ROP Gadgets,Average ROP Gadget Quality,Quality JOP Gadgets,Average JOP Gadget Quality,Quality COP Gadgets,Average COP Gadget Quality\r"]
+    orig_quality = original.name + "," + str(original.keptQualityROPGadgets) + "," + str(original.averageROPQuality)
+    orig_quality += "," + str(original.keptQualityJOPGadgets) + "," + str(original.averageJOPQuality)
+    orig_quality += "," + str(original.keptQualityCOPGadgets) + "," + str(original.averageCOPQuality) + "\r"
+    file_7_lines.append(orig_quality)
+
+    # Output File 8: Suspected function names containing introduced special purpose gadgets.
+    if args.output_addresses:
+        print("Writing function names associated with special purpose gadgets to files.")
+        file_8_lines = []
+
+    # For each variant, generate gadget stats, parse them, and add them to the file lines to be generated.
+    for variant in variants:
+        stat = GadgetStats(original, variant)
+
+        # Output file 1 variant lines
+        stat_counts = stat.variant.name + "," + str(len(stat.variant.totalUniqueGadgets)) + " (" + str(stat.totalUniqueCountDiff) + "; " + rate_format.format(stat.totalUniqueCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.ROPGadgets)) + " (" + str(stat.ROPCountDiff) + "; " + rate_format.format(stat.ROPCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.JOPGadgets)) + " (" + str(stat.JOPCountDiff) + "; " + rate_format.format(stat.JOPCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.COPGadgets)) + " (" + str(stat.COPCountDiff) + "; " + rate_format.format(stat.COPCountReduction) + ")\r"
+        file_1_lines.append(stat_counts)
+
+        # Output file 2 variant lines
         stat_counts = stat.variant.name + "," + str(len(stat.variant.totalUniqueGadgets)) + ","
         stat_counts = stat_counts + str(len(stat.totalUniqueIntroducedSet)) + ","
         stat_counts = stat_counts + rate_format.format(stat.totalUniqueIntroductionRate) + ","
@@ -110,75 +165,34 @@ if args.output_metrics:
         stat_counts = stat_counts + str(len(stat.variant.COPGadgets)) + ","
         stat_counts = stat_counts + str(len(stat.COPIntroducedSet)) + ","
         stat_counts = stat_counts + rate_format.format(stat.COPIntroductionRate) + "\r"
-        file_lines.append(stat_counts)
-    try:
-        file = open(directory_name + "/Gadget_Introduction_Counts_Rate.csv", "w")
-        file.writelines(file_lines)
-        file.close()
-    except OSError as osErr:
-        print(osErr)
+        file_2_lines.append(stat_counts)
 
-    # Output file #3: Gadget Count Introduction
-    # Part 1: ROP / JOP Special Purpose Gadgets
-    file_lines = ["ROP and JOP Special Purpose Gadgets\r",
-                  "Package Variant,Syscall Gadgets,JOP Dispatcher Gadgets,JOP Dataloader Gadgets,JOP Initializers,JOP Trampolines\r"]
-    orig_counts = original.name + "," + str(len(original.SysGadgets))
-    orig_counts = orig_counts + "," + str(len(original.JOPDispatchers))
-    orig_counts = orig_counts + "," + str(len(original.JOPDataLoaders))
-    orig_counts = orig_counts + "," + str(len(original.JOPInitializers))
-    orig_counts = orig_counts + "," + str(len(original.JOPTrampolines)) + "\r"
-    file_lines.append(orig_counts)
+        # Output file 3 variant lines
+        stat_counts = stat.variant.name + "," + str(len(stat.variant.SysGadgets)) + " (" + str(
+            stat.SysCountDiff) + "; " + rate_format.format(stat.SysCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.JOPDispatchers)) + " (" + str(
+            stat.JOPDispatchersCountDiff) + "; " + rate_format.format(stat.JOPDispatchersCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.JOPDataLoaders)) + " (" + str(
+            stat.JOPDataLoadersCountDiff) + "; " + rate_format.format(stat.JOPDataLoadersCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.JOPInitializers)) + " (" + str(
+            stat.JOPInitializersCountDiff) + "; " + rate_format.format(stat.JOPInitializersCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.JOPTrampolines)) + " (" + str(
+            stat.JOPTrampolinesCountDiff) + "; " + rate_format.format(stat.JOPTrampolinesCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.COPDispatchers)) + " (" + str(
+            stat.COPDispatchersCountDiff) + "; " + rate_format.format(stat.COPDispatchersCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.COPDataLoaders)) + " (" + str(
+            stat.COPDataLoadersCountDiff) + "; " + rate_format.format(stat.COPDataLoadersCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.COPInitializers)) + " (" + str(
+            stat.COPInitializersCountDiff) + "; " + rate_format.format(stat.COPInitializersCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.COPStrongTrampolines)) + " (" + str(
+            stat.COPStrongTrampolinesCountDiff) + "; " + rate_format.format(
+            stat.COPStrongTrampolinesCountReduction) + "),"
+        stat_counts = stat_counts + str(len(stat.variant.COPIntrastackPivots)) + " (" + str(
+            stat.COPIntrastackPivotsCountDiff) + "; " + rate_format.format(
+            stat.COPIntrastackPivotsCountReduction) + ")\r"
+        file_3_lines.append(stat_counts)
 
-    for stat in stats:
-        stat_counts = stat.variant.name + "," + str(len(stat.variant.SysGadgets)) + " (" + str(stat.SysCountDiff) + "; " + rate_format.format(stat.SysCountReduction) + "),"
-        stat_counts = stat_counts + str(len(stat.variant.JOPDispatchers)) + " (" + str(stat.JOPDispatchersCountDiff) + "; " + rate_format.format(stat.JOPDispatchersCountReduction) + "),"
-        stat_counts = stat_counts + str(len(stat.variant.JOPDataLoaders)) + " (" + str(stat.JOPDataLoadersCountDiff) + "; " + rate_format.format(stat.JOPDataLoadersCountReduction) + "),"
-        stat_counts = stat_counts + str(len(stat.variant.JOPInitializers)) + " (" + str(stat.JOPInitializersCountDiff) + "; " + rate_format.format(stat.JOPInitializersCountReduction) + "),"
-        stat_counts = stat_counts + str(len(stat.variant.JOPTrampolines)) + " (" + str(stat.JOPTrampolinesCountDiff) + "; " + rate_format.format(stat.JOPTrampolinesCountReduction) + ")\r"
-        file_lines.append(stat_counts)
-
-    # Part 2: COP Special Purpose Gadgets
-    file_lines.append("\r\r\r\r")
-    file_lines.append("COP Special Purpose Gadgets\r")
-    file_lines.append("Package Variant,COP Dispatcher Gadgets,COP Dataloader Gadgets,COP Initializers,COP Strong Trampoline Gadgets,COP Intra-stack Pivot Gadgets\r")
-    orig_counts = original.name + "," + str(len(original.COPDispatchers))
-    orig_counts = orig_counts + "," + str(len(original.COPDataLoaders))
-    orig_counts = orig_counts + "," + str(len(original.COPInitializers))
-    orig_counts = orig_counts + "," + str(len(original.COPStrongTrampolines))
-    orig_counts = orig_counts + "," + str(len(original.COPIntrastackPivots)) + "\r"
-    file_lines.append(orig_counts)
-
-    for stat in stats:
-        stat_counts = stat.variant.name + "," +  str(len(stat.variant.COPDispatchers)) + " (" + str(stat.COPDispatchersCountDiff) + "; " + rate_format.format(stat.COPDispatchersCountReduction) + "),"
-        stat_counts = stat_counts + str(len(stat.variant.COPDataLoaders)) + " (" + str(stat.COPDataLoadersCountDiff) + "; " + rate_format.format(stat.COPDataLoadersCountReduction) + "),"
-        stat_counts = stat_counts + str(len(stat.variant.COPInitializers)) + " (" + str(stat.COPInitializersCountDiff) + "; " + rate_format.format(stat.COPInitializersCountReduction) + "),"
-        stat_counts = stat_counts + str(len(stat.variant.COPStrongTrampolines)) + " (" + str(stat.COPStrongTrampolinesCountDiff) + "; " + rate_format.format(stat.COPStrongTrampolinesCountReduction) + "),"
-        stat_counts = stat_counts + str(len(stat.variant.COPIntrastackPivots)) + " (" + str(stat.COPIntrastackPivotsCountDiff) + "; " + rate_format.format(stat.COPIntrastackPivotsCountReduction) + ")\r"
-        file_lines.append(stat_counts)
-
-    try:
-        file = open(directory_name + "/SpecialPurpose_GadgetCounts_Reduction.csv", "w")
-        file.writelines(file_lines)
-        file.close()
-    except OSError as osErr:
-        print(osErr)
-
-    # Output File 4: Special Purpose Gadget Introduction Counts/Rates
-    # Part 1: ROP and JOP Special Purpose Gadgets
-    file_lines = ["ROP and JOP Special Purpose Gadget Introduction Data\r",
-                  "Package Variant,Syscall Gadgets,Syscall Gadgets Introduced,Syscall Gadget Introduction Rate," +
-                  "JOP Dispatcher Gadgets,JOP Dispatcher Gadgets Introduced,JOP Dispatcher Gadget Introduction Rate," +
-                  "JOP Dataloader Gadgets,JOP Dataloader Gadgets Introduced,JOP Dataloader Gadget Introduction Rate," +
-                  "JOP Initializer Gadgets,JOP Initializer Gadgets Introduced,JOP Initializer Gadget Introduction Rate," +
-                  "JOP Trampoline Gadgets,JOP Trampoline Gadgets Introduced,JOP Trampoline Gadget Introduction Rate\r"]
-    orig_counts = original.name + "," + str(len(original.SysGadgets)) + ", , ,"
-    orig_counts = orig_counts + str(len(original.JOPDispatchers)) + ", , ,"
-    orig_counts = orig_counts + str(len(original.JOPDataLoaders)) + ", , ,"
-    orig_counts = orig_counts + str(len(original.JOPInitializers)) + ", , ,"
-    orig_counts = orig_counts + str(len(original.JOPTrampolines)) + "\r"
-    file_lines.append(orig_counts)
-
-    for stat in stats:
+        # Output file 4 variant lines
         stat_counts = stat.variant.name + "," + str(len(stat.variant.SysGadgets)) + ","
         stat_counts = stat_counts + str(len(stat.SysIntroducedSet)) + ","
         stat_counts = stat_counts + rate_format.format(stat.SysIntroductionRate) + ","
@@ -193,27 +207,8 @@ if args.output_metrics:
         stat_counts = stat_counts + rate_format.format(stat.JOPInitializersIntroductionRate) + ","
         stat_counts = stat_counts + str(len(stat.variant.JOPTrampolines)) + ","
         stat_counts = stat_counts + str(len(stat.JOPTrampolinesIntroducedSet)) + ","
-        stat_counts = stat_counts + rate_format.format(stat.JOPTrampolinesIntroductionRate) + "\r"
-        file_lines.append(stat_counts)
-
-    # Part 2: COP Special Purpose Gadgets
-    file_lines.append("\r\r\r\r")
-    file_lines.append("COP Special Purpose Gadget Introduction Data\r")
-    file_lines.append("Package Variant,COP Dispatcher Gadgets,COP Dispatcher Gadgets Introduced,COP Dispatcher Gadget Introduction Rate," +
-                      "COP Dataloader Gadgets,COP Dataloader Gadgets Introduced,COP Dataloader Gadget Introduction Rate," +
-                      "COP Initializer Gadgets,COP Initializer Gadgets Introduced,COP Initializer Gadget Introduction Rate," +
-                      "COP Strong Trampoline Gadgets,COP Strong Trampoline Gadgets Introduced,COP Strong Trampoline Gadget Introduction Rate," +
-                      "COP Intra-stack Pivot Gadgets,COP Intra-stack Pivot Gadgets Introduced,COP Intra-stack Pivot Gadget Introduction Rate\r")
-
-    orig_counts = original.name + "," + str(len(original.COPDispatchers)) + ", , ,"
-    orig_counts = orig_counts + str(len(original.COPDataLoaders)) + ", , ,"
-    orig_counts = orig_counts + str(len(original.COPInitializers)) + ", , ,"
-    orig_counts = orig_counts + str(len(original.COPStrongTrampolines)) + ", , ,"
-    orig_counts = orig_counts + str(len(original.COPIntrastackPivots)) + "\r"
-    file_lines.append(orig_counts)
-
-    for stat in stats:
-        stat_counts = stat.variant.name + "," + str(len(stat.variant.COPDispatchers)) + ","
+        stat_counts = stat_counts + rate_format.format(stat.JOPTrampolinesIntroductionRate) + ","
+        stat_counts = stat_counts + str(len(stat.variant.COPDispatchers)) + ","
         stat_counts = stat_counts + str(len(stat.COPDispatchersIntroducedSet)) + ","
         stat_counts = stat_counts + rate_format.format(stat.COPDispatchersIntroductionRate) + ","
         stat_counts = stat_counts + str(len(stat.variant.COPDataLoaders)) + ","
@@ -228,99 +223,87 @@ if args.output_metrics:
         stat_counts = stat_counts + str(len(stat.variant.COPIntrastackPivots)) + ","
         stat_counts = stat_counts + str(len(stat.COPIntrastackPivotsIntroducedSet)) + ","
         stat_counts = stat_counts + rate_format.format(stat.COPIntrastackPivotsIntroductionRate) + "\r"
-        file_lines.append(stat_counts)
+        file_4_lines.append(stat_counts)
 
-    try:
-        file = open(directory_name + "/SpecialPurpose_Gadget_Introduction_Counts_Rate.csv", "w")
-        file.writelines(file_lines)
-        file.close()
-    except OSError as osErr:
-        print(osErr)
-
-    # Output File 5: Gadget Expressivity Classes Fulfilled By Variant
-    orig_simple_tc = original.simpleTuringCompleteClasses
-
-    file_lines = ["Package Variant,Simple Turing Completeness\r"]
-    orig_counts = original.name + ","
-    orig_counts = orig_counts + str(orig_simple_tc) + "\r"
-    file_lines.append(orig_counts)
-
-    for stat in stats:
+        # Output file 5 variant lines
         stat_simple_tc = stat.variant.simpleTuringCompleteClasses
-        stat_counts = stat.variant.name + "," + str(stat_simple_tc) + " (" + str(stat.simpleTuringCompleteCountDiff) + ")\r"
-        file_lines.append(stat_counts)
+        stat_counts = stat.variant.name + "," + str(stat_simple_tc) + " (" + str(
+            stat.simpleTuringCompleteCountDiff) + ")\r"
+        file_5_lines.append(stat_counts)
 
-    try:
-        file = open(directory_name + "/Expressivity_Counts.csv", "w")
-        file.writelines(file_lines)
-        file.close()
-    except OSError as osErr:
-        print(osErr)
-
-    # Output File 6: Overall Gadget Locality
-    file_lines = ["Package Variant,Gadget Locality\r"]
-
-    for stat in stats:
+        # Output file 6 variant lines
         stat_locality = stat.variant.name + "," + rate_format.format(stat.gadgetLocality) + "\r"
-        file_lines.append(stat_locality)
+        file_6_lines.append(stat_locality)
 
-    try:
-        file = open(directory_name + "/Gadget Locality.csv", "w")
-        file.writelines(file_lines)
-        file.close()
-    except OSError as osErr:
-        print(osErr)
-
-    # Output File 7: Average Gadget Quality (and count of quality functional gadgets)
-    file_lines = ["Package Variant,Quality ROP Gadgets,Average ROP Gadget Quality,Quality JOP Gadgets,Average JOP Gadget Quality,Quality COP Gadgets,Average COP Gadget Quality\r"]
-
-    orig_quality = original.name + "," + str(original.keptQualityROPGadgets) + "," + str(original.averageROPQuality)
-    orig_quality += "," + str(original.keptQualityJOPGadgets) + "," + str(original.averageJOPQuality)
-    orig_quality += "," + str(original.keptQualityCOPGadgets) + "," + str(original.averageCOPQuality) + "\r"
-    file_lines.append(orig_quality)
-
-    for stat in stats:
+        # Output file 7 variant lines
         stat_quality = stat.variant.name + "," + str(stat.variant.keptQualityROPGadgets) + " (" + str(stat.keptQualityROPCountDiff) + "),"
         stat_quality += str(stat.variant.averageROPQuality) + " (" + str(stat.averageROPQualityDiff) + "),"
         stat_quality += str(stat.variant.keptQualityJOPGadgets) + " (" + str(stat.keptQualityJOPCountDiff) + "),"
         stat_quality += str(stat.variant.averageJOPQuality) + " (" + str(stat.averageJOPQualityDiff) + "),"
         stat_quality += str(stat.variant.keptQualityCOPGadgets) + " (" + str(stat.keptQualityCOPCountDiff) + "),"
         stat_quality += str(stat.variant.averageCOPQuality) + " (" + str(stat.averageCOPQualityDiff) + ")\r"
-        file_lines.append(stat_quality)
+        file_7_lines.append(stat_quality)
 
+        # Output file 8 variant lines
+        if args.output_addresses:
+            file_8_lines.append("Sensitive gadgets introduced in variant: " + stat.variant.name + "\r")
+            specialSets = [stat.SysIntroducedGadgets, stat.JOPDispatchersIntroducedGadgets,
+                           stat.JOPDataLoadersIntroducedGadgets, stat.JOPInitializersIntroducedGadgets,
+                           stat.JOPTrampolinesIntroducedGadgets, stat.COPDispatchersIntroducedGadgets,
+                           stat.COPDataLoadersIntroducedGadgets, stat.COPInitializersIntroducedGadgets,
+                           stat.COPStrongTrampolinesIntroducedGadgets, stat.COPIntrastackPivotsIntroducedGadgets]
+            for specialSet in specialSets:
+                for gadget in specialSet:
+                    file_8_lines.append("Gadget: " + str(gadget.instructions) + "\r")
+                    file_8_lines.append("Found at offset: " + gadget.offset + "\r")
+                    function = stat.variant.getFunction(gadget.offset)
+                    if function is None:
+                        file_8_lines.append("No associated function found.\r")
+                    else:
+                        file_8_lines.append("Most likely location in source code: " + function + "\r")
+            file_8_lines.append("----------------------------------------------------------\r")
+
+    # Write file lines to disk.
     try:
+        # Output file 1
+        file = open(directory_name + "/GadgetCounts_Reduction.csv", "w")
+        file.writelines(file_1_lines)
+        file.close()
+
+        # Output file 2
+        file = open(directory_name + "/Gadget_Introduction_Counts_Rate.csv", "w")
+        file.writelines(file_2_lines)
+        file.close()
+
+        # Output file 3
+        file = open(directory_name + "/SpecialPurpose_GadgetCounts_Reduction.csv", "w")
+        file.writelines(file_3_lines)
+        file.close()
+
+        # Output file 4
+        file = open(directory_name + "/SpecialPurpose_Gadget_Introduction_Counts_Rate.csv", "w")
+        file.writelines(file_4_lines)
+        file.close()
+
+        # Output file 5
+        file = open(directory_name + "/Expressivity_Counts.csv", "w")
+        file.writelines(file_5_lines)
+        file.close()
+
+        # Output file 6
+        file = open(directory_name + "/Gadget Locality.csv", "w")
+        file.writelines(file_6_lines)
+        file.close()
+
+        # Output file 7
         file = open(directory_name + "/Gadget Quality.csv", "w")
-        file.writelines(file_lines)
+        file.writelines(file_7_lines)
         file.close()
-    except OSError as osErr:
-        print(osErr)
 
-
-# Output File 8: Suspected function names containing introduced special purpose gadgets.
-if args.output_addresses:
-    print("Writing function names associated with special purpose gadgets to files.")
-    file_lines = []
-    for stat in stats:
-        file_lines.append("Sensitive gadgets introduced in variant: " + stat.variant.name + "\r")
-        specialSets = [stat.SysIntroducedGadgets, stat.JOPDispatchersIntroducedGadgets,
-                       stat.JOPDataLoadersIntroducedGadgets, stat.JOPInitializersIntroducedGadgets,
-                       stat.JOPTrampolinesIntroducedGadgets, stat.COPDispatchersIntroducedGadgets,
-                       stat.COPDataLoadersIntroducedGadgets, stat.COPInitializersIntroducedGadgets,
-                       stat.COPStrongTrampolinesIntroducedGadgets, stat.COPIntrastackPivotsIntroducedGadgets]
-        for specialSet in specialSets:
-            for gadget in specialSet:
-                file_lines.append("Gadget: " + str(gadget.instructions) + "\r")
-                file_lines.append("Found at offset: " + gadget.offset + "\r")
-                function = stat.variant.getFunction(gadget.offset)
-                if function is None:
-                    file_lines.append("No associated function found.\r")
-                else:
-                    file_lines.append("Most likely location in source code: " + function + "\r")
-        file_lines.append("----------------------------------------------------------\r")
-
-    try:
-        file = open(directory_name + "/Likely_Gadget_Locations.txt", "w")
-        file.writelines(file_lines)
-        file.close()
+        # Output file 8
+        if args.output_addresses:
+            file = open(directory_name + "/Likely_Gadget_Locations.txt", "w")
+            file.writelines(file_8_lines)
+            file.close()
     except OSError as osErr:
         print(osErr)
