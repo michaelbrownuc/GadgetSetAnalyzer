@@ -20,6 +20,8 @@ class Instruction(object):
         :param str raw_instr: the raw instruction
         """
 
+        self.raw = raw_instr
+
         self.opcode = None
         self.op1 = None
         self.op2 = None
@@ -56,3 +58,42 @@ class Instruction(object):
         if raw_instr != test_str:
             print("  ERROR parsing gadget, parsed gadget doesn't match raw input.")
 
+
+    @staticmethod
+    def is_hex_constant(operand):
+        if operand is None:
+            return False
+
+        try:
+            int(operand, 16)
+            return True
+        except ValueError:
+            return False
+
+
+    @staticmethod
+    def is_dec_constant(operand):
+        if operand is None:
+            return False
+
+        try:
+            int(operand)
+            return True
+        except ValueError:
+            return False
+
+    @staticmethod
+    def is_constant(operand):
+        if operand is None:
+            return False
+
+        return Instruction.is_hex_constant(operand) or Instruction.is_dec_constant(operand)
+
+    @staticmethod
+    def get_operand_as_constant(operand):
+        if Instruction.is_hex_constant(operand):
+            return int(operand, 16)
+        elif Instruction.is_dec_constant(operand):
+            return int(operand)
+        else:
+            print("  ERROR: Operand is not a hex or decimal constant. " + operand)

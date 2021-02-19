@@ -28,6 +28,7 @@ class GadgetSet(object):
         :param bool createCFG: whether or not to use angr to create a CFG.
         """
         self.name = name
+        self.cnt_useless = 0
 
         # Init the CFG with angr for finding functions
         if createCFG:
@@ -45,6 +46,9 @@ class GadgetSet(object):
 
         for gadget in self.allGadgets:
             self.analyze_gadget(gadget)
+
+        print("  INFO: Total number of all gadgets: " + str(len(self.allGadgets)))
+        print("  INFO: Number of rejected gadgets: " + str(self.cnt_useless))
 
         # TODO: Rolling marker for what has already been overhauled
         return
@@ -124,12 +128,25 @@ class GadgetSet(object):
         :return: None, but modifies GadgetSet collections and Gadget object members
         """
 
+
         # Step 1: Eliminate useless gadgets, defined as:
         # 1) Gadgets that consist only of the GPI (SYSCALL gadgets excluded)
         # 2) Gadgets that have a first opcode that is not useful - we assume that the first instruction is part of the
-        #    desired operation to be performed (otherwise attacker would just use the shorter version)
-        # 3) Gadgets that create value in the first instruction only to overwrite that value completely before the GPI
-        # 3) TODO what else causes gality to reject?
+        #    desired operation to be performed (otherwise attacker would just use the shorter version) TODO
+        # 3) Gadgets that end in a call/jmp <offset> (ROPgadget should not include these in the first place)
+        # 4) Gadgets that create value in the first instruction only to overwrite that value completely before the GPI TODO
+        # 5) Gadgets ending in returns with offsets that are not byte aligned or greater than 32 bytes
+        # ...) TODO what else causes gality to reject?
+        if gadget.is_gpi_only() or gadget.is_useless_op() or \
+           gadget.is_invalid_branch() or gadget.has_invalid_ret_offset():
+
+            self.cnt_useless += 1
+            return
+
+        # TODO DELET THIS
+        print("  NOT REJECTED: " + gadget.instruction_string)
+
+
 
 
         # Step 2: Determine the gadget type, determined by:
@@ -140,6 +157,7 @@ class GadgetSet(object):
 
         # Step 3: Determine the gadget score, which starts at 0 and is incremented by:
         # 1) TODO list out gality criterion here
+
 
 
     def populateSpecialJOPGadgets(self):

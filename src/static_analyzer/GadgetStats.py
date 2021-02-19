@@ -255,7 +255,7 @@ class GadgetStats(object):
         totalGadgets = len(variant.ROPGadgets) + len(variant.JOPGadgets) + len(variant.SysGadgets)
         self.gadgetLocality = self.localGadgets / totalGadgets
 
-	# Calculate gadget quality
+        # Calculate gadget quality
         self.keptQualityROPCountDiff = original.keptQualityROPGadgets - variant.keptQualityROPGadgets
         self.keptQualityJOPCountDiff = original.keptQualityJOPGadgets - variant.keptQualityJOPGadgets
         self.keptQualityCOPCountDiff = original.keptQualityCOPGadgets - variant.keptQualityCOPGadgets
