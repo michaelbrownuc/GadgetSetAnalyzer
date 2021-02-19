@@ -16,18 +16,18 @@ from static_analyzer.Gadget import Gadget
 
 class GadgetSet(object):
     """
-    The GadgetSet class is initialized from a binary file and contains information derived from static analysis tools.
+    The GadgetSet class is initialized from a binary file and records information about the utility and availability
+    of gadgets present in the binary's encoding.
     """
-
-    galityPath = "/home/michael/gality/bin/"
 
     def __init__(self, name, filepath, createCFG):
         """
         GadgetSet constructor
         :param str name: Name for the gadget set
-        :param str filepath: Filepath of the file on disk to debloat.
+        :param str filepath: Path to the file on disk.
         :param bool createCFG: whether or not to use angr to create a CFG.
         """
+        self.name = name
 
         # Init the CFG with angr for finding functions
         if createCFG:
@@ -40,15 +40,16 @@ class GadgetSet(object):
         else:
             self.cfg = None
 
-        self.name = name
-        self.totalUniqueGadgets = set()
+        # Run ROPgadget to populate total gadget set (includes duplicates and multi-branch gadgets)
+        self.allGadgets = self.parse_gadgets(self.runROPgadget(filepath, "--all --multibr"))
 
-        # Run ROPgadget to populate ROP, JOP, and Syscall gadgets
-        self.ROPGadgets = self.parseGadgets("ROP", self.runROPgadget(filepath, "--nojop --nosys"))
-        self.JOPGadgets = self.parseGadgets("JOP", self.runROPgadget(filepath, "--norop --nosys"))
-        self.SysGadgets = self.parseGadgets("Syscall", self.runROPgadget(filepath, "--norop --nojop"))
+        for gadget in self.allGadgets:
+            self.analyze_gadget(gadget)
 
-	# Run Gality (GT Version) to collect ROP / JOP / COP useful gadget counts and average quality
+        # TODO: Rolling marker for what has already been overhauled
+        return
+
+        # Run Gality (GT Version) to collect ROP / JOP / COP useful gadget counts and average quality
         self.keptQualityROPGadgets = 0
         self.keptQualityJOPGadgets = 0
         self.keptQualityCOPGadgets = 0
@@ -81,11 +82,11 @@ class GadgetSet(object):
         # Run microgadget scanner
         self.simpleTuringCompleteClasses = self.parseClasses(self.runROPgadget(filepath, "--nojop --nosys --microgadgets"))
 
-    def parseGadgets(self, gadget_type, output):
+    @staticmethod
+    def parse_gadgets(output):
         """
-        Converts raw ROPGadget output into a list of Gadget objects.
-        :param str output: Plain text output from run of ROPGagdet
-        :param str gadget_type: String representing the type of gadgets in this collection.
+        Converts raw ROPgadget output into a list of Gadget objects.
+        :param str output: Plain text output from run of ROPgadget
         :return: List of Gadget objects
         """
         # Iterate through each line and generate a gadget object
@@ -99,128 +100,47 @@ class GadgetSet(object):
                     line == "" or \
                     line.startswith("Unique gadgets found"):
                 continue
-            # Split gadgets into constituent parts
             else:
-                offset = line[:line.find(":")]
-                gadget_string = line[line.find(":") + 2:]
-                instructions = gadget_string.split(" ; ")
-                gadgets.append(Gadget(gadget_type, offset, instructions))
-                self.totalUniqueGadgets.add(gadget_string)
+                gadgets.append(Gadget(line))
 
         return gadgets
 
     def runROPgadget(self, filepath, flags):
         """
-        Runs ROPGadget on the binary at filepath with flags passed.
+        Runs ROPgadget on the binary at filepath with flags passed.
         :param str filepath: path to binary to analyze
         :param str flags: string containing the flags for execution
         :return: Output from the ROPgadget command as a standard string, None if the data was not collected as expected.
         """
-        bytestr = None
-        try:
-            bytestr = subprocess.check_output("ROPgadget --binary " + filepath + " " + flags, shell=True)
-        except subprocess.CalledProcessError as CPE:
-            print("Error in running ROPgadget with flags:" + flags)
-            print(CPE.output)
 
-        # Convert output to standard string.
-        return bytestr.decode("utf-8")
+        sub = subprocess.Popen("ROPgadget --binary " + filepath + " " + flags, shell=True, stdout=subprocess.PIPE)
+        subprocess_return = sub.stdout.read()
+        return subprocess_return.decode("utf-8")
 
-    def runGality(self, filepath):
+    def analyze_gadget(self, gadget):
         """
-        Runs Gality on the total ROPgadget output for the file specified at the filepath. Also parses the produced file
-        and sets the appropriate member variables.
-        :param filepath: path to binary to analyze
-        :return: None
-        """
-        # Run ROPgadget with all engines enabled, and save file to a temp file in the current directory. Then run gality
-        # on that file, saving a new temp file.
-        rg_output = self.runROPgadget(filepath, "")
-
-        try:
-            file = open("gality_temp_input_file.txt", "w")
-            file.write(rg_output)
-            file.close()
-        except OSError as osErr:
-            print(osErr)
-
-        subprocess.run("java -cp " + self.galityPath +
-                        " gality.Program gality_temp_input_file.txt gality_temp_output_file.txt", shell=True)
-
-        # Open the temp file, read the lines.
-        file_lines = []
-
-        try:
-            file = open("gality_temp_output_file.txt", "r")
-            file_lines = file.readlines()
-            file.close()
-        except OSError as osErr:
-            print(osErr)
-
-        # Delete the temp files.
-        try:
-            os.remove("gality_temp_input_file.txt")
-            os.remove("gality_temp_output_file.txt")
-        except OSError as osErr:
-            print(osErr)
-
-        # Parse the lines into the values we want to keep.
-        for line in file_lines:
-            if line.find("Kept") > -1:
-                if line.find("ROP") > -1:
-                    self.keptQualityROPGadgets = int(line[5:line.find("ROP")-1])
-                elif line.find("JOP") > -1:
-                    self.keptQualityJOPGadgets = int(line[5:line.find("JOP")-1])
-                elif line.find("COP") > -1:
-                    self.keptQualityCOPGadgets = int(line[5:line.find("COP")-1])
-                else:
-                    print("Unexpected line encountered while parsing gality results: " + line)
-
-            if line.find("Average") > -1:
-                if line.find("ROP") > -1:
-                    self.averageROPQuality = float(line[line.find(": ") + 2:])
-                elif line.find("JOP") > -1:
-                    self.averageJOPQuality = float(line[line.find(": ") + 2:])
-                elif line.find("COP") > -1:
-                    self.averageCOPQuality = float(line[line.find(": ") + 2:])
-                else:
-                    print("Unexpected line encountered while parsing gality results: " + line)
-
-
-    def filterJOPGadgets(self):
-        """
-        Corrects for an issue in ROPGadget that includes some return ending gadgets in its output.
-        :return: None, alters the JOPGadgets collection.
-        """
-        gadgetsToRemove = []
-        for jopGadget in self.JOPGadgets:
-            last_instr = jopGadget.instructions[len(jopGadget.instructions)-1]
-            if last_instr.startswith("ret"):
-                print("Filtering Gadget: " + str(jopGadget.instructions))
-                gadgetsToRemove.append(jopGadget)
-
-        for gadget in gadgetsToRemove:
-            self.JOPGadgets.remove(gadget)
-
-    def getCOPGadgets(self):
-        """
-        Reads through the recorded JOP gadgets and populates COP gadgets
-        """
-        for jopGadget in self.JOPGadgets:
-            last_instr = jopGadget.instructions[len(jopGadget.instructions)-1]
-            if last_instr.startswith("call"):
-                self.COPGadgets.append(jopGadget)
-
-    def parseClasses(self, output):
-        """
-        :param str output: Console output from the microgadget scanner
-        :return:
+        Analyzes a gadget to determine its properties
+        :param Gadget gadget: gadget to analyze
+        :return: None, but modifies GadgetSet collections and Gadget object members
         """
 
-        lines = output.split("\n")
-        for line in lines:
-            if line.find("Classes Satisfied") != -1:
-                return line[:line.find(" ")]
+        # Step 1: Eliminate useless gadgets, defined as:
+        # 1) Gadgets that consist only of the GPI (SYSCALL gadgets excluded)
+        # 2) Gadgets that have a first opcode that is not useful - we assume that the first instruction is part of the
+        #    desired operation to be performed (otherwise attacker would just use the shorter version)
+        # 3) Gadgets that create value in the first instruction only to overwrite that value completely before the GPI
+        # 3) TODO what else causes gality to reject?
+
+
+        # Step 2: Determine the gadget type, determined by:
+        # 1) GPI - rets = ROP, Jmps/Calls = JOP, Calls = COP, Others = SYSCALL
+        # 2) If a JOP/COP gadget, perform secondary Special Purpose gadget check. If qualified, add to that set instead
+
+
+
+        # Step 3: Determine the gadget score, which starts at 0 and is incremented by:
+        # 1) TODO list out gality criterion here
+
 
     def populateSpecialJOPGadgets(self):
         """

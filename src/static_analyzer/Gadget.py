@@ -7,6 +7,7 @@ Gadget class
 # Third Party Imports
 
 # Local Imports
+from static_analyzer.Instruction import Instruction
 
 
 class Gadget(object):
@@ -14,20 +15,24 @@ class Gadget(object):
     The Gadget class represents a single gadget.
     """
 
-    def __init__(self, gadget_type, offset, instructions):
+    def __init__(self, raw_gadget):
         """
         Gadget constructor
-        :param str type: The type of gadget (i.e. ROP, JOP, COP Trampoline, etc.)
-        :param str offset: Offset location of the gadget
-        :param str[] instructions
+        :param str raw_gadget: raw line output from ROPgadget
         """
-        self.gadget_type = gadget_type
-        self.offset = offset
-        self.instructions = instructions
+
+        # Parse the raw line
+        self.offset = raw_gadget[:raw_gadget.find(":")]
+        self.instruction_string = raw_gadget[raw_gadget.find(":") + 2:]
+
+        # Parse instruction objects
+        self.instructions = []
+        for instr in self.instruction_string.split(" ; "):
+            self.instructions.append(Instruction(instr))
 
     @staticmethod
-    def gadgetsEqual(lhs, rhs):
-        if lhs.offset == rhs.offset and lhs.instructions == rhs.instructions:
+    def gadgets_equal(lhs, rhs):
+        if lhs.offset == rhs.offset and lhs.instructions_raw == rhs.instructions_raw:
             return True
         else:
             return False
