@@ -136,15 +136,20 @@ class GadgetSet(object):
         # 3) Gadgets that end in a call/jmp <offset> (ROPgadget should not include these in the first place)
         # 4) Gadgets that create value in the first instruction only to overwrite that value completely before the GPI TODO
         # 5) Gadgets ending in returns with offsets that are not byte aligned or greater than 32 bytes
-        # ...) TODO what else causes gality to reject?
-        if gadget.is_gpi_only() or gadget.is_useless_op() or \
+        # 6) Gadgets containing ring-0 instructions / operands TODO: dissociate this from "useless" ops
+        # ...) TODO what else causes gality to reject? See paper
+        if gadget.is_gpi_only() or gadget.is_useless_op() or gadget.contains_unusable_op() or \
            gadget.is_invalid_branch() or gadget.has_invalid_ret_offset():
-
             self.cnt_useless += 1
             return
 
+
         # TODO DELET THIS
         print("  NOT REJECTED: " + gadget.instruction_string)
+
+
+
+
 
 
 

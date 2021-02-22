@@ -33,10 +33,60 @@ class Gadget(object):
     def is_useless_op(self):
         """
         :return boolean: Returns True if the first instruction opcode is in the "useless" list, False otherwise
+                         Default behavior is to consider opcodes useful unless otherwise observed.
         """
-        # TODO: DO THIS NEXT
-        useless = []
-        return self.instructions[0].opcode in useless
+        first_opcode = self.instructions[0].opcode
+
+        # Bulk catch for all "jump" opcodes: No reason to include the instruction, just use the suffix directly
+        if first_opcode.startswith("j"):
+            return True
+        # Bulk catch for all "ret" opcodes: Bug in ROP gadget finds some gadgets that start with this GPI
+        if first_opcode.startswith("ret"):
+            return True
+        # Bulk catch for all "iret" opcodes: Bug in ROP gadget finds some gadgets that start with this GPI
+        if first_opcode.startswith("iret"):
+            return True
+        # Bulk catch for all "call" opcodes: Bug in ROP gadget finds some gadgets that start with this GPI
+        if first_opcode.startswith("call"):
+            return True
+
+        # Useless opcodes:
+        # NOP - No reason to include the instruction, just use the suffix directly
+        # LJMP - Same reason as "jump" opcodes above
+        useless = ["nop", "fnop", "ljmp"]
+        return first_opcode in useless
+
+    def contains_unusable_op(self):
+        """
+        :return boolean: Returns True if any instruction opcode is unusable.  False otherwise
+                         unusable instructions are Ring-0 opcodes that trap in user mode and some other exceptional ops.
+        """
+        for instr in self.instructions:
+            # Bulk catch for all "invalidate" opcodes: Ring-0 instructions
+            if instr.opcode.startswith("inv"):
+                return True
+            # Bulk catch for all "Virtual-Machine" opcodes: Ring-0 instructions
+            if instr.opcode.startswith("vm") and instr.opcode != "vminsd" and instr.opcode != "vminpd":
+                return True
+            # Bulk catch for all "undefined" opcodes
+            if instr.opcode.startswith("ud"):
+                return True
+
+            # Other Ring-0 opcodes and RSM
+            unusable = ["clts", "hlt", "lgdt", "lidt", "lldt", "lmsw", "ltr", "monitor", "mwait",
+                        "swapgs", "sysexit", "sysreturn", "wbinvd", "wrmsr", "xsetbv", "rsm"]
+            if instr.opcode in unusable:
+                return True
+
+            # Check for ring-0 operands (control, debug, and test registers)
+            if instr.op1 is not None:
+                if instr.op1.startswith("cr") or instr.op1.startswith("tr") or instr.op1.startswith("db"):
+                    return True
+            if instr.op2 is not None:
+                if instr.op2.startswith("cr") or instr.op2.startswith("tr") or instr.op2.startswith("db"):
+                    return True
+
+        return False
 
     def is_gpi_only(self):
         """
