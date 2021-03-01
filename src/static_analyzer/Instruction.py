@@ -154,3 +154,20 @@ class Instruction(object):
 
         # Default return for non-integer registers, instruction pointer register, etc.
         return None
+
+    def is_equivalent(self, rhs):
+        """
+        :return boolean: Returns True if the instructions are equivalent. Used for non-locality gadget metrics.
+                         equivalence is defined as the exact same instruction. The only exception is if the
+                         instructions are intermediate branches for multi-branch gadgets. If so, then the gadgets are
+                         considered equivalent if they have the same opcode, op1 is a constant, and op2 is None.
+        """
+        if self.raw == rhs.raw:
+            return True
+
+        if self.opcode.startswith("j") and self.opcode == rhs.opcode and \
+           Instruction.is_constant(self.op1) and Instruction.is_constant(rhs.op1) and \
+           self.op2 is None and rhs.op2 is None:
+            return True
+
+        return False

@@ -240,7 +240,7 @@ class Gadget(object):
 
                     # Does the instruction overwrite the target with a static value or segment register value?
                     if "mov" in cur_instr.opcode and (Instruction.is_constant(cur_instr.op2) or
-                                                     Instruction.get_operand_register_family(cur_instr.op2) == None):
+                                                      Instruction.get_operand_register_family(cur_instr.op2) is None):
                         return True
         return False
 
@@ -267,9 +267,58 @@ class Gadget(object):
 
         return False
 
-    @staticmethod
-    def gadgets_equal(lhs, rhs):
-        if lhs.offset == rhs.offset and lhs.instructions_raw == rhs.instructions_raw:
-            return True
-        else:
+    def is_equal(self, rhs):
+        """
+        :return boolean: Returns True if the gadgets are an exact match, including offset. Used for gadget locality.
+        """
+        return self.offset == rhs.offset and self.instruction_string == rhs.instruction_string
+
+    def is_duplicate(self, rhs):
+        """
+        :return boolean: Returns True if the gadgets are a semantic match. Used for non-locality gadget metrics.
+                         Semantic match is defined as the exact same sequence of equivalent instructions.
+        """
+        if len(self.instructions) != len(rhs.instructions):
             return False
+
+        for i in range(len(self.instructions)):
+            if not self.instructions[i].is_equivalent(rhs.instructions[i]):
+                return False
+
+        return True
+
+    #TODO Move code from Gadget set here and parse out
+    def is_JOP_dispatcher(self):
+        return False
+
+    # TODO
+    def is_JOP_dataloader(self):
+        return False
+
+    # TODO
+    def is_JOP_initializer(self):
+        return False
+
+    # TODO
+    def is_JOP_trampoline(self):
+        return False
+
+   #TODO
+    def is_COP_dispatcher(self):
+        return False
+
+    # TODO
+    def is_COP_dataloader(self):
+        return False
+
+    # TODO
+    def is_COP_initializer(self):
+        return False
+
+    # TODO
+    def is_COP_strong_trampoline(self):
+        return False
+
+    # TODO
+    def is_COP_intrastack_pivot(self):
+        return False

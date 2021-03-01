@@ -29,6 +29,7 @@ class GadgetSet(object):
         """
         self.name = name
         self.cnt_rejected = 0
+        self.cnt_duplicate = 0
 
         # Init the CFG with angr for finding functions
         if createCFG:
@@ -41,50 +42,73 @@ class GadgetSet(object):
         else:
             self.cfg = None
 
-        # Run ROPgadget to populate total gadget set (includes duplicates and multi-branch gadgets)
-        self.allGadgets = self.parse_gadgets(self.runROPgadget(filepath, "--all --multibr"))
-
-        for gadget in self.allGadgets:
-            self.analyze_gadget(gadget)
-
-        print("  INFO: Total number of all gadgets: " + str(len(self.allGadgets)))
-        print("  INFO: Number of rejected gadgets: " + str(self.cnt_rejected))
-
-        # TODO: Rolling marker for what has already been overhauled
-        return
-
-        # Run Gality (GT Version) to collect ROP / JOP / COP useful gadget counts and average quality
-        self.keptQualityROPGadgets = 0
-        self.keptQualityJOPGadgets = 0
-        self.keptQualityCOPGadgets = 0
-        self.averageROPQuality = 0.0
-        self.averageJOPQuality = 0.0
-        self.averageCOPQuality = 0.0
-        self.runGality(filepath)
-
-        # Filter JOP gadgets
-        self.filterJOPGadgets()
-
-        # Populate COP gagdets
+        # Initialize functional gadget type lists
+        self.ROPGadgets = []
+        self.JOPGadgets = []
         self.COPGadgets = []
-        self.getCOPGadgets()
 
-        # Search for other special purpose gadgets
+        # Initialize special purpose gadget type lists
+        self.SyscallGadgets = []
         self.JOPDispatchers = []
         self.JOPDataLoaders = []
         self.JOPInitializers = []
         self.JOPTrampolines = []
-        self.populateSpecialJOPGadgets()
-
         self.COPDispatchers = []
         self.COPStrongTrampolines = []
         self.COPIntrastackPivots = []
         self.COPDataLoaders = []
         self.COPInitializers = []
+
+        # Initialize average quality scores
+        self.averageROPQuality = 0.0
+        self.averageJOPQuality = 0.0
+        self.averageCOPQuality = 0.0
+        self.averageSyscallQuality = 0.0
+        self.averageJOPDispatcherQuality = 0.0
+        self.averageJOPDataLoaderQuality = 0.0
+        self.averageJOPInitializerQuality = 0.0
+        self.averageJOPTrampolineQuality = 0.0
+        self.averageCOPDispatcherQuality = 0.0
+        self.averageCOPStrongTrampolineQuality = 0.0
+        self.averageCOPIntrastackPivotQuality = 0.0
+        self.averageCOPDataLoaderQuality = 0.0
+        self.averageCOPInitializerQuality = 0.0
+
+        # Run ROPgadget to populate total gadget set (includes duplicates and multi-branch gadgets)
+        self.allGadgets = self.parse_gadgets(self.runROPgadget(filepath, "--all --multibr"))
+
+        # Reject unusable gadgets, sort gadgets into their appropriate category sets, score gadgets, classify gadgets
+        for gadget in self.allGadgets:
+            self.analyze_gadget(gadget)
+
+        # TODO Delete this at some point
+        print("  INFO: Total number of all gadgets: " + str(len(self.allGadgets)))
+        print("  INFO: Number of rejected gadgets: " + str(self.cnt_rejected))
+        print("  INFO: Number of duplicate gadgets: " + str(self.cnt_duplicate))
+        print("  INFO: Unique ROP gadgets: " + str(len(self.ROPGadgets)))
+        print("  INFO: Unique JOP gadgets: " + str(len(self.JOPGadgets)))
+        print("  INFO: Unique COP gadgets: " + str(len(self.COPGadgets)))
+        print("  INFO: Unique SYS gadgets: " + str(len(self.SyscallGadgets)))
+
+        # TODO: Rolling marker for what has already been overhauled
+        return
+
+
+
+
+
+        # Populate COP gagdets
+
+        self.getCOPGadgets()
+
+        # Search for other special purpose gadgets
+
+        self.populateSpecialJOPGadgets()
+
+
         self.populateSpecialCOPGadgets()
 
-        # Run microgadget scanner
-        self.simpleTuringCompleteClasses = self.parseClasses(self.runROPgadget(filepath, "--nojop --nosys --microgadgets"))
+
 
     @staticmethod
     def parse_gadgets(output):
@@ -145,7 +169,7 @@ class GadgetSet(object):
         if gadget.is_gpi_only() or gadget.is_useless_op() or gadget.is_invalid_branch() or \
            gadget.creates_unusable_value() or gadget.has_invalid_ret_offset() or gadget.contains_unusable_op() or \
            gadget.contains_intermediate_GPI() or gadget.clobbers_stack_pointer() or \
-           gadget.clobbers_indirect_target() or gadget.is_rip_relative_indirect_branch() or \
+           gadget.is_rip_relative_indirect_branch() or gadget.clobbers_indirect_target() or \
            gadget.has_invalid_int_handler() or gadget.clobbers_created_value():
             self.cnt_rejected += 1
             return
@@ -154,14 +178,52 @@ class GadgetSet(object):
         # Step 2: Determine the gadget type, determined by:
         # 1) GPI - rets = ROP, Jmps/Calls = JOP, Calls = COP, Others = SYSCALL
         # 2) If a JOP/COP gadget, perform secondary Special Purpose gadget check. If qualified, add to that set instead
-        # 3) If a multi-branch gadget - only add it to appropriate set if it is semantically unique
+        gpi = gadget.instructions[len(gadget.instructions)-1].opcode
+
+        if gpi.startswith("ret"):
+            self.add_if_unique(gadget, self.ROPGadgets)
+        elif gpi.startswith("jmp"):
+            if gadget.is_JOP_dispatcher():
+                self.add_if_unique(gadget, self.JOPDispatchers)
+            elif gadget.is_JOP_dataloader():
+                self.add_if_unique(gadget, self.JOPDataLoaders)
+            elif gadget.is_JOP_initializer():
+                self.add_if_unique(gadget, self.JOPInitializers)
+            elif gadget.is_JOP_trampoline():
+                self.add_if_unique(gadget, self.JOPTrampolines)
+            else:
+                self.add_if_unique(gadget, self.JOPGadgets)
+        elif gpi.startswith("call"):
+            if gadget.is_COP_dispatcher():
+                self.add_if_unique(gadget, self.COPDispatchers)
+            elif gadget.is_COP_dataloader():
+                self.add_if_unique(gadget, self.COPDataLoaders)
+            elif gadget.is_COP_initializer():
+                self.add_if_unique(gadget, self.COPInitializers)
+            elif gadget.is_COP_strong_trampoline():
+                self.add_if_unique(gadget, self.COPStrongTrampolines)
+            elif gadget.is_COP_intrastack_pivot():
+                self.add_if_unique(gadget, self.COPStrongTrampolines)
+            else:
+                self.add_if_unique(gadget, self.COPGadgets)
+        else:
+            self.add_if_unique(gadget, self.SyscallGadgets)
+
 
 
 
         # Step 3: Determine the gadget score, which starts at 0 and is incremented by:
         # 1) TODO list out gality criterion here
 
+        # Step 4: Calculate average quality score for sets
 
+
+    def add_if_unique(self, gadget, collection):
+        for rhs in collection:
+            if gadget.is_duplicate(rhs):
+                self.cnt_duplicate += 1
+                return
+        collection.append(gadget)
 
     def populateSpecialJOPGadgets(self):
         """
