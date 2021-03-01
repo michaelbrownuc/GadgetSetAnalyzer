@@ -28,7 +28,7 @@ class GadgetSet(object):
         :param bool createCFG: whether or not to use angr to create a CFG.
         """
         self.name = name
-        self.cnt_useless = 0
+        self.cnt_rejected = 0
 
         # Init the CFG with angr for finding functions
         if createCFG:
@@ -48,7 +48,7 @@ class GadgetSet(object):
             self.analyze_gadget(gadget)
 
         print("  INFO: Total number of all gadgets: " + str(len(self.allGadgets)))
-        print("  INFO: Number of rejected gadgets: " + str(self.cnt_useless))
+        print("  INFO: Number of rejected gadgets: " + str(self.cnt_rejected))
 
         # TODO: Rolling marker for what has already been overhauled
         return
@@ -128,35 +128,33 @@ class GadgetSet(object):
         :return: None, but modifies GadgetSet collections and Gadget object members
         """
 
-
         # Step 1: Eliminate useless gadgets, defined as:
         # 1) Gadgets that consist only of the GPI (SYSCALL gadgets excluded)
         # 2) Gadgets that have a first opcode that is not useful - we assume that the first instruction is part of the
-        #    desired operation to be performed (otherwise attacker would just use the shorter version) TODO
+        #    desired operation to be performed (otherwise attacker would just use the shorter version)
         # 3) Gadgets that end in a call/jmp <offset> (ROPgadget should not include these in the first place)
-        # 4) Gadgets that create value in the first instruction only to overwrite that value completely before the GPI TODO
+        # 4) Gadgets that create values in segment or extension registers, or are RIP-relative
         # 5) Gadgets ending in returns with offsets that are not byte aligned or greater than 32 bytes
-        # 6) Gadgets containing ring-0 instructions / operands TODO: dissociate this from "useless" ops
-        # ...) TODO what else causes gality to reject? See paper
-        if gadget.is_gpi_only() or gadget.is_useless_op() or gadget.contains_unusable_op() or \
-           gadget.is_invalid_branch() or gadget.has_invalid_ret_offset():
-            self.cnt_useless += 1
+        # 6) Gadgets containing ring-0 instructions / operands
+        # 7) Gadgets that contain an intermediate GPI/interrupt (ROPgadget should not include these in the first place)
+        # 8) ROP Gadgets that perform non-static assignments to the stack pointer register
+        # 9) JOP/COP Gadgets that overwrite the target of and indirect branch GPI
+        # 10) JOP/COP gadgets that are RIP-relative
+        # 11) Syscall gadgets that end in an interrupt handler that is not 0x80 (ROPgadget should not include these)
+        # 12) Gadgets that create value in the first instruction only to overwrite that value before the GPI
+        if gadget.is_gpi_only() or gadget.is_useless_op() or gadget.is_invalid_branch() or \
+           gadget.creates_unusable_value() or gadget.has_invalid_ret_offset() or gadget.contains_unusable_op() or \
+           gadget.contains_intermediate_GPI() or gadget.clobbers_stack_pointer() or \
+           gadget.clobbers_indirect_target() or gadget.is_rip_relative_indirect_branch() or \
+           gadget.has_invalid_int_handler() or gadget.clobbers_created_value():
+            self.cnt_rejected += 1
             return
-
-
-        # TODO DELET THIS
-        print("  NOT REJECTED: " + gadget.instruction_string)
-
-
-
-
-
-
 
 
         # Step 2: Determine the gadget type, determined by:
         # 1) GPI - rets = ROP, Jmps/Calls = JOP, Calls = COP, Others = SYSCALL
         # 2) If a JOP/COP gadget, perform secondary Special Purpose gadget check. If qualified, add to that set instead
+        # 3) If a multi-branch gadget - only add it to appropriate set if it is semantically unique
 
 
 
