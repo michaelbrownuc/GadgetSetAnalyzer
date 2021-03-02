@@ -89,6 +89,16 @@ class GadgetSet(object):
         print("  INFO: Unique JOP gadgets: " + str(len(self.JOPGadgets)))
         print("  INFO: Unique COP gadgets: " + str(len(self.COPGadgets)))
         print("  INFO: Unique SYS gadgets: " + str(len(self.SyscallGadgets)))
+        print("  INFO: Unique JOP dispatcher gadgets: " + str(len(self.JOPDispatchers)))
+        print("  INFO: Unique JOP initializer gadgets: " + str(len(self.JOPInitializers)))
+        print("  INFO: Unique JOP dataloader gadgets: " + str(len(self.JOPDataLoaders)))
+        print("  INFO: Unique JOP trampoline gadgets: " + str(len(self.JOPTrampolines)))
+        print("  INFO: Unique COP dispatcher gadgets: " + str(len(self.COPDispatchers)))
+        print("  INFO: Unique COP initializer gadgets: " + str(len(self.COPInitializers)))
+        print("  INFO: Unique COP intrastack pivot gadgets: " + str(len(self.COPIntrastackPivots)))
+
+
+
 
         # TODO: Rolling marker for what has already been overhauled
         return
@@ -183,27 +193,28 @@ class GadgetSet(object):
         if gpi.startswith("ret"):
             self.add_if_unique(gadget, self.ROPGadgets)
         elif gpi.startswith("jmp"):
-            if gadget.is_JOP_dispatcher():
+            if gadget.is_JOP_COP_dispatcher():
                 self.add_if_unique(gadget, self.JOPDispatchers)
             elif gadget.is_JOP_dataloader():
                 self.add_if_unique(gadget, self.JOPDataLoaders)
-            elif gadget.is_JOP_initializer():
+            elif gadget.is_JOP_COP_initializer():
                 self.add_if_unique(gadget, self.JOPInitializers)
             elif gadget.is_JOP_trampoline():
                 self.add_if_unique(gadget, self.JOPTrampolines)
             else:
                 self.add_if_unique(gadget, self.JOPGadgets)
         elif gpi.startswith("call"):
-            if gadget.is_COP_dispatcher():
+            if gadget.is_JOP_COP_dispatcher():
                 self.add_if_unique(gadget, self.COPDispatchers)
             elif gadget.is_COP_dataloader():
                 self.add_if_unique(gadget, self.COPDataLoaders)
-            elif gadget.is_COP_initializer():
+            elif gadget.is_JOP_COP_initializer():
                 self.add_if_unique(gadget, self.COPInitializers)
             elif gadget.is_COP_strong_trampoline():
                 self.add_if_unique(gadget, self.COPStrongTrampolines)
             elif gadget.is_COP_intrastack_pivot():
-                self.add_if_unique(gadget, self.COPStrongTrampolines)
+                self.add_if_unique(gadget, self.COPIntrastackPivots)
+                print(gadget.instruction_string)
             else:
                 self.add_if_unique(gadget, self.COPGadgets)
         else:

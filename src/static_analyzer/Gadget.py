@@ -287,24 +287,63 @@ class Gadget(object):
 
         return True
 
-    #TODO Move code from Gadget set here and parse out
-    def is_JOP_dispatcher(self):
+    def is_JOP_COP_dispatcher(self):
+        """
+        :return boolean: Returns True if the gadget is a JOP dispatcher. Defined as a gadget that begins with a
+                         arithmetic operation on a register and ends with a branch to a deference of that register. Used
+                         to iterate through instructions in payload. Only restrictions on the arithmetic operation is
+                         that it doesn't use the same register as both operands.
+        """
+        first_instr = self.instructions[0]
+        last_instr = self.instructions[len(self.instructions) - 1]
+
+        # Only consider gadgets that end in dereference of a register and start with opcodes of interest
+        if "[" in last_instr.op1 and first_instr.opcode in ["inc ", "dec ", "add ", "adc ", "sub ", "sbb "]:
+            gpi_target = Instruction.get_operand_register_family(last_instr.op1)
+            arith_target_1 = Instruction.get_operand_register_family(first_instr.op1)
+            arith_target_2 = Instruction.get_operand_register_family(first_instr.op2)
+            return gpi_target == arith_target_1 and arith_target_1 != arith_target_2
+
         return False
 
-    # TODO
     def is_JOP_dataloader(self):
+        """
+        :return boolean: Returns True if the gadget is a JOP data loader. Defined as a gadget that begins with a
+                         pop opcode to a non-memory location, that is also not the target of the GPI. Used to pop a
+                         necessary value off stack en masse before redirecting to the dispatcher.
+        """
+        first_instr = self.instructions[0]
+
+        if first_instr.opcode == "pop" and "[" not in first_instr.op1:
+            gpi_target = Instruction.get_operand_register_family(self.instructions[len(self.instructions) - 1].op1)
+            pop_target = Instruction.get_operand_register_family(first_instr.op1)
+            return gpi_target != pop_target
+
         return False
 
-    # TODO
-    def is_JOP_initializer(self):
-        return False
 
-    # TODO
+    def is_JOP_COP_initializer(self):
+        """
+        :return boolean: Returns True if the gadget is a JOP Initializer. Defined as a gadget that begins with a
+                         "pop all" opcode, used to pop necessary values off stack en masse before redirecting to the
+                         dispatcher.
+        """
+        return self.instructions[0].opcode.startswith("popa")
+
     def is_JOP_trampoline(self):
-        return False
+        """
+        :return boolean: Returns True if the gadget is a JOP trampoline. Defined as a gadget that begins with a
+                         pop opcode to a non-memory location, and that ends in a dereference of that value. Used to
+                         redirect execution to value stored in memory.
+        """
+        first_instr = self.instructions[0]
+        gpi_target_op = self.instructions[len(self.instructions) - 1].op1
 
-   #TODO
-    def is_COP_dispatcher(self):
+        if first_instr.opcode == "pop" and "[" not in first_instr.op1:
+            gpi_target = Instruction.get_operand_register_family(gpi_target_op)
+            pop_target = Instruction.get_operand_register_family(first_instr.op1)
+            return gpi_target == pop_target and "[" in gpi_target_op
+
         return False
 
     # TODO
@@ -312,13 +351,22 @@ class Gadget(object):
         return False
 
     # TODO
-    def is_COP_initializer(self):
-        return False
-
-    # TODO
     def is_COP_strong_trampoline(self):
         return False
 
-    # TODO
     def is_COP_intrastack_pivot(self):
+        """
+        :return boolean: Returns True if the gadget is a COP Intra-stack pivot gadget. Defined as a gadget that begins
+                         with an additive operation on the stack pointer register. Used to move around in shellcode
+                         during COP exploits. Only restriction on the arithmetic operation is that the second operand
+                         is not a pointer.
+        """
+        first_instr = self.instructions[0]
+
+        if first_instr.opcode in ["inc ", "add ", "adc ", "sub ", "sbb "]:
+            arith_target = Instruction.get_operand_register_family(first_instr.op1)
+            if arith_target == 7:             # RSP, ESP family number
+                if first_instr.op2 is None or "[" not in first_instr.op2:
+                    return True
+
         return False
