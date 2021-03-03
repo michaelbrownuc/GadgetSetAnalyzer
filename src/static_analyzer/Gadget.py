@@ -169,7 +169,7 @@ class Gadget(object):
         :return boolean: Returns True if the gadget creates a value in segment or extension registers, or are
                          RIP-relative, or are constant memory locations; False otherwise.
         """
-        # Check if the first instruction creates a value
+        # Check if the first instruction creates a value (or may potentially set a flag
         first_instr = self.instructions[0]
         if first_instr.opcode in ["cmp", "test", "push"] or first_instr.op1 is None:
             return False
@@ -208,11 +208,16 @@ class Gadget(object):
         if last_instr.opcode.startswith("ret"):
             for i in range(len(self.instructions) - 1):
                 cur_instr = self.instructions[i]
-                if cur_instr.opcode not in ["cmp", "test"] and \
-                   cur_instr.op1 in ["rsp", "esp", "sp", "spl"] and \
-                   cur_instr.op2 is not None and not Instruction.is_constant(cur_instr.op2):
-                    return True
 
+                # Ignore instructions that do not create values
+                if not cur_instr.creates_value():
+                    continue
+
+                # Check for non-static modification of the stack pointer register family
+                if Instruction.get_operand_register_family(cur_instr.op1) == 7:  # RSP, ESP family number
+                    if (cur_instr.op2 is None and cur_instr.opcode not in ["inc", "dec", "pop"]) or \
+                       (cur_instr.op2 is not None and not Instruction.is_constant(cur_instr.op2)):
+                        return True
         return False
 
     def clobbers_indirect_target(self):
@@ -267,6 +272,14 @@ class Gadget(object):
         last_instr = self.instructions[len(self.instructions) - 1]
         if last_instr.opcode.startswith("jmp") or last_instr.opcode.startswith("call"):
             if "rip" in last_instr.op1 or "eip" in last_instr.op1:
+                return True
+
+        return False
+
+    def contains_static_call(self):
+        for i in range(1, len(self.instructions)-1):
+            cur_instr = self.instructions[i]
+            if cur_instr.opcode.startswith("call") and Instruction.is_constant(cur_instr.op1):
                 return True
 
         return False
@@ -441,3 +454,120 @@ class Gadget(object):
                     return True
 
         return False
+
+    def check_contains_leave(self):
+        """
+        :return void: Increases gadget's score if the gadget has an intermediate "leave" instruction.
+        """
+        for i in range(1, len(self.instructions)-1):
+            if self.instructions[i].opcode == "leave":
+                self.score += 2.0
+                return    # Only penalize gadget once
+
+    def check_sp_target_of_operation(self):
+        """
+        :return void: Increases gadget's score if the gadget has an intermediate instruction that performs certain
+                      operations on the stack pointer register family.
+        """
+        # Scan instructions to determine if they modify the stack pointer register family
+        for i in range(len(self.instructions)-1):
+            cur_instr = self.instructions[i]
+
+            # Ignore instructions that do not create values
+            if not cur_instr.creates_value():
+                continue
+
+            # Increase score by 4 for move, load address, and exchange ops, 3 for shift/rotate ops, and 2 for others
+            if Instruction.get_operand_register_family(cur_instr.op1) == 7:    # RSP, ESP family number
+                if "xchg" in cur_instr.opcode or "mov" in cur_instr.opcode or cur_instr.opcode in ["lea"]:
+                    self.score += 4.0
+                elif cur_instr.opcode in ["shl", "shr", "sar", "sal", "ror", "rol", "rcr", "rcl"]:
+                    self.score += 3.0
+                elif cur_instr.opcode == "pop":
+                    self.score += 1.0
+                else:
+                    self.score += 2.0   # Will be a static modification, otherwise it would have been rejected earlier
+
+    def check_negative_sp_offsets(self):
+        """
+        :return void: Increases gadget's score if its cumulative register offsets are negative.
+        """
+        sp_offset = 0
+
+        # Scan instructions to determine if they modify the stack pointer
+        for i in range(len(self.instructions)):
+            cur_instr = self.instructions[i]
+
+            if cur_instr.opcode == "push":
+                sp_offset -= 8
+
+            elif cur_instr.opcode == "pop" and cur_instr.op1 not in Instruction.register_families[7]:
+                sp_offset += 8
+
+            elif cur_instr.opcode in ["add", "adc"] and cur_instr.op1 in Instruction.register_families[7] and \
+               Instruction.is_constant(cur_instr.op2):
+                sp_offset += Instruction.get_operand_as_constant(cur_instr.op2)
+
+            elif cur_instr.opcode in ["sub", "sbb"] and cur_instr.op1 in Instruction.register_families[7] and \
+               Instruction.is_constant(cur_instr.op2):
+                sp_offset -= Instruction.get_operand_as_constant(cur_instr.op2)
+
+            elif cur_instr.opcode == "inc" and cur_instr.op1 in Instruction.register_families[7]:
+                sp_offset += 1
+
+            elif cur_instr.opcode == "dec" and cur_instr.op1 in Instruction.register_families[7]:
+                sp_offset -= 1
+
+            elif cur_instr.opcode.startswith("ret") and cur_instr.op1 is not None:
+                sp_offset += Instruction.get_operand_as_constant(cur_instr.op1)
+
+        if sp_offset < 0:
+            self.score += 2.0
+
+    def check_contains_conditional_op(self):
+        """
+        :return void: Increases gadget's score if it contains conditional instructions like jumps, sets, and moves.
+        """
+        # Scan instructions to determine if they modify the stack pointer
+        for i in range(len(self.instructions)-1):
+            cur_instr = self.instructions[i]
+
+            if cur_instr.opcode.startswith("j") and cur_instr.opcode != "jmp":
+                self.score += 3.0
+            elif "cmov" in cur_instr.opcode or "cmpxchg" in cur_instr.opcode:
+                self.score += 2.0
+            elif "set" in cur_instr.opcode:
+                self.score += 1.0
+
+    def check_register_ops(self):
+        """
+        :return void: Increases gadget's score if it contains operations on a value carrying or bystander register.
+        """
+        first_instr = self.instructions[0]
+
+        # Check if the first instruction creates a value or is an xchg operand (excluded as an edge case)
+        if not first_instr.creates_value() or "xchg" in first_instr.opcode:
+            first_family = None
+        else:
+            # Check op1 to find the register family to protect
+            first_family = Instruction.get_operand_register_family(first_instr.op1)
+
+        for i in range(1, len(self.instructions)-1):
+            cur_instr = self.instructions[i]
+
+            # Ignore instructions that do not create values
+            if not cur_instr.creates_value():
+                continue
+
+            # If the new value is a modification of the value-carrying register
+            if first_family is not None and first_family == Instruction.get_operand_register_family(cur_instr.op1):
+                if cur_instr.opcode in ["shl", "shr", "sar", "sal", "ror", "rol", "rcr", "rcl"]:
+                    self.score += 1.5
+                else:
+                    self.score += 1.0  # Will be a static modification, otherwise it would have been rejected earlier
+            elif "xchg" not in cur_instr.opcode and cur_instr.opcode != "pop":
+                # The modification is to a "bystander register". static mods +0.5, non-static +1.0
+                if cur_instr.op2 is not None and Instruction.get_operand_register_family(cur_instr.op2) is not None:
+                    self.score += 1.0
+                else:
+                    self.score += 0.5
