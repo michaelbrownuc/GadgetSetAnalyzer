@@ -155,7 +155,8 @@ class Gadget(object):
 
             # Check for non-static modification of the register family
             if first_family == Instruction.get_operand_register_family(cur_instr.op1):
-                if cur_instr.op2 is not None and not Instruction.is_constant(cur_instr.op2):
+                if (cur_instr.op2 is None and cur_instr.opcode not in ["inc", "dec", "neg", "not"]) or \
+                   (cur_instr.op2 is not None and not Instruction.is_constant(cur_instr.op2)):
                     return True
 
         return False
@@ -289,7 +290,7 @@ class Gadget(object):
 
     def is_JOP_COP_dispatcher(self):
         """
-        :return boolean: Returns True if the gadget is a JOP dispatcher. Defined as a gadget that begins with a
+        :return boolean: Returns True if the gadget is a JOP or COP dispatcher. Defined as a gadget that begins with a
                          arithmetic operation on a register and ends with a branch to a deference of that register. Used
                          to iterate through instructions in payload. Only restrictions on the arithmetic operation is
                          that it doesn't use the same register as both operands.
@@ -298,17 +299,25 @@ class Gadget(object):
         last_instr = self.instructions[len(self.instructions) - 1]
 
         # Only consider gadgets that end in dereference of a register and start with opcodes of interest
-        if "[" in last_instr.op1 and first_instr.opcode in ["inc ", "dec ", "add ", "adc ", "sub ", "sbb "]:
+        if "[" in last_instr.op1 and \
+           first_instr.opcode in ["inc", "dec", "add", "adc", "sub", "sbb"] and "[" not in first_instr.op1:
             gpi_target = Instruction.get_operand_register_family(last_instr.op1)
             arith_target_1 = Instruction.get_operand_register_family(first_instr.op1)
+
+            # Secondary check: if the second op is a constant ensure it is in range [1, 32]
+            if Instruction.is_constant(first_instr.op2):
+                additive_value = Instruction.get_operand_as_constant(first_instr.op2)
+                if additive_value < 1 or additive_value > 32:
+                    return False
+
             arith_target_2 = Instruction.get_operand_register_family(first_instr.op2)
             return gpi_target == arith_target_1 and arith_target_1 != arith_target_2
 
         return False
 
-    def is_JOP_dataloader(self):
+    def is_JOP_COP_dataloader(self):
         """
-        :return boolean: Returns True if the gadget is a JOP data loader. Defined as a gadget that begins with a
+        :return boolean: Returns True if the gadget is a JOP or COP data loader. Defined as a gadget that begins with a
                          pop opcode to a non-memory location, that is also not the target of the GPI. Used to pop a
                          necessary value off stack en masse before redirecting to the dispatcher.
         """
@@ -322,7 +331,7 @@ class Gadget(object):
         return False
 
 
-    def is_JOP_COP_initializer(self):
+    def is_JOP_initializer(self):
         """
         :return boolean: Returns True if the gadget is a JOP Initializer. Defined as a gadget that begins with a
                          "pop all" opcode, used to pop necessary values off stack en masse before redirecting to the
@@ -346,12 +355,71 @@ class Gadget(object):
 
         return False
 
-    # TODO
-    def is_COP_dataloader(self):
+    def is_COP_initializer(self):
+        """
+        :return boolean: Returns True if the gadget is a COP initializer. Defined as a gadget that begins with a
+                         "pop all" opcode, does not use register bx/cx/dx/di as the call target, and does not clobber
+                         bx/cx/dx or the call target in an intermediate instruction
+        """
+        first_instr = self.instructions[0]
+        last_instr = self.instructions[len(self.instructions)-1]
+        call_target = Instruction.get_operand_register_family(last_instr.op1)
+
+        if first_instr.opcode.startswith("popa") and call_target not in [1, 2, 3, 5]:   # BX, CX, DX, DI families
+            # Build collective list of register families to protect from being clobbered
+            protected_families = [1, 2, 3, call_target]
+            protected_registers = []
+            for family in protected_families:
+                for register in Instruction.register_families[family]:
+                    protected_registers.append(register)
+
+            # Scan intermediate instructions to ensure they do not clobber a protected register
+            for i in range(1, len(self.instructions)-1):
+                cur_instr = self.instructions[i]
+
+                # Ignore instructions that do not create values
+                if not cur_instr.creates_value():
+                    continue
+
+                # Check for non-static modification of the register family
+                if cur_instr.op1 in protected_registers:
+                    if (cur_instr.op2 is None and cur_instr.opcode not in ["inc", "dec", "neg", "not"]) or \
+                       (cur_instr.op2 is not None and not Instruction.is_constant(cur_instr.op2)):
+                        return False
+            return True
+
         return False
 
-    # TODO
     def is_COP_strong_trampoline(self):
+        """
+        :return boolean: Returns True if the gadget is a COP strong trampoline. Defined as a gadget that begins with a
+                         pop opcode, and contains at least one other pop operation. The last non-pop all operation must
+                         target the call target.
+        """
+        first_instr = self.instructions[0]
+        last_instr = self.instructions[len(self.instructions) - 1]
+        call_target = Instruction.get_operand_register_family(last_instr.op1)
+
+        # Only consider instructions that start with a pop
+        if first_instr.opcode == "pop" and "[" not in first_instr.op1:
+            cnt_pops = 1
+            last_pop_target = first_instr.op1
+
+            # Scan intermediate instructions for pops
+            for i in range(1, len(self.instructions)-1):
+                cur_instr = self.instructions[i]
+
+                if cur_instr.opcode.startswith("popa"):
+                    cnt_pops += 1
+
+                if cur_instr.opcode == "pop" and "[" not in cur_instr.op1:
+                    cnt_pops += 1
+                    last_pop_target = cur_instr.op1
+
+            # Check that at least two pops occurred and the last pop target is the call target
+            if cnt_pops > 1 and last_pop_target in Instruction.register_families[call_target]:
+                return True
+
         return False
 
     def is_COP_intrastack_pivot(self):
@@ -363,7 +431,7 @@ class Gadget(object):
         """
         first_instr = self.instructions[0]
 
-        if first_instr.opcode in ["inc ", "add ", "adc ", "sub ", "sbb "]:
+        if first_instr.opcode in ["inc", "add", "adc", "sub", "sbb"] and "[" not in first_instr.op1:
             arith_target = Instruction.get_operand_register_family(first_instr.op1)
             if arith_target == 7:             # RSP, ESP family number
                 if first_instr.op2 is None or "[" not in first_instr.op2:

@@ -4,8 +4,6 @@ Gadget Set Class
 
 # Standard Library Imports
 import subprocess
-import itertools
-import os
 
 # Third Party Imports
 import angr
@@ -43,6 +41,7 @@ class GadgetSet(object):
             self.cfg = None
 
         # Initialize functional gadget type lists
+        self.allGadgets = []
         self.ROPGadgets = []
         self.JOPGadgets = []
         self.COPGadgets = []
@@ -75,7 +74,7 @@ class GadgetSet(object):
         self.averageCOPInitializerQuality = 0.0
 
         # Run ROPgadget to populate total gadget set (includes duplicates and multi-branch gadgets)
-        self.allGadgets = self.parse_gadgets(self.runROPgadget(filepath, "--all --multibr"))
+        self.parse_gadgets(GadgetSet.runROPgadget(filepath, "--all --multibr"))
 
         # Reject unusable gadgets, sort gadgets into their appropriate category sets, score gadgets, classify gadgets
         for gadget in self.allGadgets:
@@ -95,41 +94,20 @@ class GadgetSet(object):
         print("  INFO: Unique JOP trampoline gadgets: " + str(len(self.JOPTrampolines)))
         print("  INFO: Unique COP dispatcher gadgets: " + str(len(self.COPDispatchers)))
         print("  INFO: Unique COP initializer gadgets: " + str(len(self.COPInitializers)))
+        print("  INFO: Unique COP dataloader gadgets: " + str(len(self.COPDataLoaders)))
+        print("  INFO: Unique COP strong trampoline gadgets: " + str(len(self.COPStrongTrampolines)))
         print("  INFO: Unique COP intrastack pivot gadgets: " + str(len(self.COPIntrastackPivots)))
-
-
-
 
         # TODO: Rolling marker for what has already been overhauled
         return
 
-
-
-
-
-        # Populate COP gagdets
-
-        self.getCOPGadgets()
-
-        # Search for other special purpose gadgets
-
-        self.populateSpecialJOPGadgets()
-
-
-        self.populateSpecialCOPGadgets()
-
-
-
-    @staticmethod
-    def parse_gadgets(output):
+    def parse_gadgets(self, output):
         """
         Converts raw ROPgadget output into a list of Gadget objects.
         :param str output: Plain text output from run of ROPgadget
         :return: List of Gadget objects
         """
         # Iterate through each line and generate a gadget object
-        gadgets = []
-
         lines = output.split("\n")
         for line in lines:
             # Exclude header/footer information
@@ -139,11 +117,10 @@ class GadgetSet(object):
                     line.startswith("Unique gadgets found"):
                 continue
             else:
-                gadgets.append(Gadget(line))
+                self.allGadgets.append(Gadget(line))
 
-        return gadgets
-
-    def runROPgadget(self, filepath, flags):
+    @staticmethod
+    def runROPgadget(filepath, flags):
         """
         Runs ROPgadget on the binary at filepath with flags passed.
         :param str filepath: path to binary to analyze
@@ -195,9 +172,9 @@ class GadgetSet(object):
         elif gpi.startswith("jmp"):
             if gadget.is_JOP_COP_dispatcher():
                 self.add_if_unique(gadget, self.JOPDispatchers)
-            elif gadget.is_JOP_dataloader():
+            elif gadget.is_JOP_COP_dataloader():
                 self.add_if_unique(gadget, self.JOPDataLoaders)
-            elif gadget.is_JOP_COP_initializer():
+            elif gadget.is_JOP_initializer():
                 self.add_if_unique(gadget, self.JOPInitializers)
             elif gadget.is_JOP_trampoline():
                 self.add_if_unique(gadget, self.JOPTrampolines)
@@ -206,22 +183,18 @@ class GadgetSet(object):
         elif gpi.startswith("call"):
             if gadget.is_JOP_COP_dispatcher():
                 self.add_if_unique(gadget, self.COPDispatchers)
-            elif gadget.is_COP_dataloader():
+            elif gadget.is_JOP_COP_dataloader():
                 self.add_if_unique(gadget, self.COPDataLoaders)
-            elif gadget.is_JOP_COP_initializer():
+            elif gadget.is_COP_initializer():
                 self.add_if_unique(gadget, self.COPInitializers)
             elif gadget.is_COP_strong_trampoline():
                 self.add_if_unique(gadget, self.COPStrongTrampolines)
             elif gadget.is_COP_intrastack_pivot():
                 self.add_if_unique(gadget, self.COPIntrastackPivots)
-                print(gadget.instruction_string)
             else:
                 self.add_if_unique(gadget, self.COPGadgets)
         else:
             self.add_if_unique(gadget, self.SyscallGadgets)
-
-
-
 
         # Step 3: Determine the gadget score, which starts at 0 and is incremented by:
         # 1) TODO list out gality criterion here
@@ -236,208 +209,6 @@ class GadgetSet(object):
                 return
         collection.append(gadget)
 
-    def populateSpecialJOPGadgets(self):
-        """
-        Performs search of the JOP gadgets in this set to identify JOP special purpose gadgets
-        :return: void
-        """
-        for gadget in self.JOPGadgets:
-            first_instruction = gadget.instructions[0]
-            last_instruction = gadget.instructions[len(gadget.instructions)-1]
-            # Short circuit elimination of call-terminating gadgets
-            if last_instruction.startswith("call"):
-                continue
-
-            # Check first instructions to identify potential data loader and initializer gadgets. We do not check all
-            # otherwise we over count gadgets because ROPgadget results include all gadget suffixes of each gadget.
-            if first_instruction.find("popa") > -1:
-                # If a popa/popad opcode is found, this instruction can be used as an initializer gadget.
-                # print("Found a JOP Initializer: " + str(gadget.instructions))
-                self.JOPInitializers.append(gadget)
-            elif first_instruction.find("pop ") > -1:
-                # Otherwise, if a pop opcode is found, then the instruction is a data loader or trampoline candidate.
-                pop_target = first_instruction[4:]
-                if pop_target.find("[") == -1:
-                    # Ignore pop instructions targeting memory (pop operand contains a dereference)
-                    if last_instruction.find(pop_target) == -1:
-                        # if pop target isn't in the last gadget, this instruction can be used as a data loader gadget.
-                        # print("Found a JOP Data Loader: " + str(gadget.instructions))
-                        self.JOPDataLoaders.append(gadget)
-                    else:
-                        # if the pop target is in the last gadget, check to see if it dereferenced. If so it is highly
-                        # likely that the instruction can be used as a trampoline (exceptions are complex, non-static
-                        # expressions within the dereference operation.
-                        if last_instruction.find("[") > -1:
-                            # Search the intermediate instructions the pop target.
-                            pt_found = False
-                            for i in range(1, len(gadget.instructions)-1):
-                                if gadget.instructions[i].find(pop_target) > -1:
-                                    # Check for use or redefinition
-                                    op_split = gadget.instructions[i].find(", ")
-                                    if (op_split == -1) or (gadget.instructions[i][:op_split].find(pop_target) > -1):
-                                        # if the first operand (unary or binary) contains the pop_target
-                                        pt_found = True
-                            if pt_found is False:
-                                self.JOPTrampolines.append(gadget)
-
-            # Check last instruction for a register dereference, if so is a dispatcher candidate
-            if last_instruction.find("[") > -1:
-                # Generate instruction types to look for
-                base_target_start = last_instruction.find("[")
-                base_target = last_instruction[base_target_start + 2:base_target_start + 4]
-                targets = ["r" + base_target, "e" + base_target]
-                valid_opcodes = ["inc ", "dec ", "add ", "adc ", "sub ", "sbb "]
-                target_operations = []
-                for combo in itertools.product(valid_opcodes, targets):
-                    target_operations.append(combo[0] + combo[1])
-                # Check first instruction to see if it performs the required action
-                for operation in target_operations:
-                    operation_index = first_instruction.find(operation)
-                    if operation_index > -1:
-                        # If the first instruction is a target operation, do two checks
-                        # 1. Check that the operation doesn't use a target in the second operand
-                        used_in_second = False
-                        for target in targets:
-                            if first_instruction[len(operation):].find(target) > -1:
-                                used_in_second = True
-                        if used_in_second:
-                            break
-
-                        # 2. Check intermediate instructions for redefinition of a target
-                        jt_found = False
-                        for i in range(1, len(gadget.instructions) - 1):
-                            for target in targets:
-                                # Check for use or redefinition
-                                if GadgetSet.definesTarget(gadget.instructions[i], target):
-                                    jt_found = True
-                        if jt_found is False:
-                            self.JOPDispatchers.append(gadget)
-                        break
-
-    def populateSpecialCOPGadgets(self):
-        """
-        Performs search of the COP gadgets in this set to identify COP special purpose gadgets
-        :return: void
-        """
-        for gadget in self.COPGadgets:
-            first_instruction = gadget.instructions[0]
-            last_instruction = gadget.instructions[len(gadget.instructions) - 1]
-
-            # A single gadget can be used for multiple special purposes in COP techniques. We search for these in a
-            # non-mutually exclusive fashion.
-
-            # 1. Check for COP Initializer (which is also one type of Strong Trampoline Gadget)
-            if first_instruction.find("popa") > -1:
-                # If a popa/popad opcode is found, this instruction can be used as an initializer gadget.
-                self.COPInitializers.append(gadget)
-                self.COPStrongTrampolines.append(gadget)
-
-            # 2. Deleted code that found COP Trampolines, these aren't useful gadgets per original paper.
-
-            # 3. Check for COP Strong Trampoline (except for the special case of COP initializers)
-            # Only consider instructions that start with a pop, and end with a dereference
-            if first_instruction.find("pop ") > -1 and last_instruction.find("[") > -1:
-                pop_targets = [first_instruction[4:]]
-                call_target = last_instruction[last_instruction.find("[")+1:last_instruction.find("]")]
-                is_STG = False
-                reject = False
-
-                # iterate through instructions to collect more info
-                for i in range(1, len(gadget.instructions)-1):
-                    current = gadget.instructions[i]
-
-                    # Reject Case: We encounter an instruction that redefines the call target
-                    if GadgetSet.definesTarget(current, call_target):
-                        reject = True
-                        break
-
-                    # Accept Case: We encounter a popa(d) instruction.
-                    if current.find("popa") > -1:
-                        if call_target not in pop_targets:
-                            isSTG = True
-                            # Can't break out of loop, need to check remaining instructions for the reject case
-
-                    # Record Case: we encounter another pop instruction, in which case we need to record data
-                    if current.find("pop ") > -1:
-                        pop_targets.append(current[4:])
-
-                # Check to see if this gadget is a string of pops that makes an STG
-                if (reject is not True) and (is_STG is False) and (len(pop_targets) > 1):
-                    if call_target == pop_targets[len(pop_targets)-1]:
-                        # Last pop must be the call target
-                        is_STG = True
-
-                if is_STG and (reject is not True):
-                    self.COPStrongTrampolines.append(gadget)
-
-            # 4. Check for COP Data Loaders. A COP Loader's first instruction is popad, call target is not \
-            #    ebx/ecx/edx/edi, and intermediate instructions do not define ebx/ecx/edx.
-            if first_instruction.find("popad") > -1:
-                call_target = last_instruction[last_instruction.find("[") + 1:last_instruction.find("]")]
-                reject = False
-                # Check call target
-                for target in ["ebx", "ecx", "edx", "edi"]:
-                    if call_target.find(target) > -1:
-                        reject = True
-                        break
-
-                if reject is not True:
-                    # Check intermediate instructions
-                    for i in range(1, len(gadget.instructions)-1):
-                        for target in ["ebx", "ecx", "edx"]:
-                            if GadgetSet.definesTarget(gadget.instructions[i], target):
-                                reject = True
-                                break
-                        if reject:
-                            break
-
-                if reject is not True:
-                    self.COPDataLoaders.append(gadget)
-
-            # 5. Check for COP Intra-stack Pivots
-            if first_instruction.find("inc esp") > -1 or first_instruction.find("add esp") > -1 or \
-                    first_instruction.find("adc esp") > -1 or first_instruction.find("sbb esp") > -1 or \
-                    first_instruction.find("sub esp") > -1:
-                # If we find an appropriate operation, need to make the second operand isn't a pointer (if it exists)
-                op_split = first_instruction.find(", ")
-                if op_split == -1 or first_instruction[op_split:].find("[") == -1:
-                    self.COPIntrastackPivots.append(gadget)
-
-            # 6. Check for COP Dispatchers
-            # Check last instruction for a register dereference, if so is a dispatcher candidate
-            if last_instruction.find("[") > -1:
-                # Generate instruction types to look for
-                base_target_start = last_instruction.find("[")
-                base_target = last_instruction[base_target_start + 2:base_target_start + 4]
-                targets = ["r" + base_target, "e" + base_target]
-                valid_opcodes = ["inc ", "dec ", "add ", "adc ", "sub ", "sbb "]
-                target_operations = []
-                for combo in itertools.product(valid_opcodes, targets):
-                    target_operations.append(combo[0] + combo[1])
-                # Check first instruction to see if it performs the required action
-                for operation in target_operations:
-                    operation_index = first_instruction.find(operation)
-                    if operation_index > -1:
-                        # If the first instruction is a target operation, do two checks
-                        # 1. Check that the operation doesn't use a target in the second operand
-                        used_in_second = False
-                        for target in targets:
-                            if first_instruction[len(operation):].find(target) > -1:
-                                used_in_second = True
-                        if used_in_second:
-                            break
-
-                        # 2. Check intermediate instructions for redefinition of a target
-                        jt_found = False
-                        for i in range(1, len(gadget.instructions) - 1):
-                            for target in targets:
-                                # Check for use or redefinition
-                                if GadgetSet.definesTarget(gadget.instructions[i], target):
-                                    jt_found = True
-                        if jt_found is False:
-                            self.COPDispatchers.append(gadget)
-                        break
-
     def getFunction(self, rop_addr):
         rop_addr = int(rop_addr, 16)
         try:
@@ -449,79 +220,3 @@ class GadgetSet(object):
             return rop_function
         else:
             return None
-
-    @staticmethod
-    def definesTarget(instruction, target):
-        """
-        Static method for determining if an instruction modifies the target.  The purpose of this function is to
-        handle the
-        :param str instruction: String representation of the instruction in question.
-        :param str target: String representation of the target register.
-        :return boolean: True if the instruction defines the target, False if it does not.
-        """
-        first_space = instruction.find(" ")
-
-        # Check if there is no space, this indicates an instruction with no parameters.
-        if first_space == -1:
-            if instruction.find("popa") > -1 and target in ["edi", "esi", "ebp", "ebx", "edx", "ecx", "eax"]:
-                return True
-        # Otherwise, the instruction has operands
-        else:
-            op_split = instruction.find(", ")
-            opcode = instruction[:first_space]
-            find_index = instruction.find(target)
-            # Easier to list what doesn't assign, only common x86 opcodes listed
-            non_assignment_opcodes = ["push", "cmp"]
-
-            # If the target is in the instruction and the opcode performs assignment
-            if (find_index > -1) and (opcode not in non_assignment_opcodes):
-                # If the instruction is unary or the target is in the first operand, then it defines the target.
-                if (op_split == -1) or (find_index < op_split):
-                    return True
-
-        # Default value is to return False
-        return False
-
-    @staticmethod
-    def getGadgetTypeSet(gadgetList):
-        """
-        Static method for generating a set of gadget strings suitable for performing set operations.
-        :param Gadget[] gadgetList: A list of Gadget objects
-        :return: A set of gadget strings suitable for performing set arithmetic
-        """
-        gadgetTypeSet = set()
-        sep = "; "
-
-        for gadget in gadgetList:
-            gadgetTypeSet.add(sep.join(gadget.instructions))
-
-        return gadgetTypeSet
-
-    def getGadgetsFromStrings(self, gadgetStringSet, category):
-        """
-        Static method for finding a set of Gadget objects from instruction strings.  Used to invert conversion to set
-        operable string above.
-        :param str[] gadgetStringSet: A set of gadgets represented as strings (as created by getGadgetTypeSet
-        :param str category: A general category for searching for the gadget objects.  Must be SYS, JOP, or COP.
-        :return: A list of Gadget Objects corresponding to the input strings.
-        """
-        gadgetObjects = []
-        objectList = None
-        if category == "SYS":
-            objectList = self.SysGadgets
-        elif category == "JOP":
-            objectList = self.JOPGadgets
-        elif category == "COP":
-            objectList = self.COPGadgets
-
-        if objectList is None:
-            print("Invalid Category selected for gadget search.")
-            return []
-
-        for gadgetString in gadgetStringSet:
-            gadgetInstrs = gadgetString.split("; ")
-            for object in objectList:
-                if gadgetInstrs == object.instructions:
-                    gadgetObjects.append(object)
-
-        return gadgetObjects

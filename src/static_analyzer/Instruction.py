@@ -79,7 +79,10 @@ class Instruction(object):
         """
         :return boolean: Returns True if the gadget creates a value.
         """
-        if self.opcode in ["cmp", "test", "push"] or self.op1 is None:
+        if self.opcode.startswith("j"):
+            return False
+
+        if self.opcode in ["cmp", "test", "push", "ljump"] or self.op1 is None:
             return False
 
         return True
@@ -125,8 +128,8 @@ class Instruction(object):
 
     @staticmethod
     def get_operand_register_family(operand):
-        # Dummy check for constant operands
-        if Instruction.is_constant(operand):
+        # Dummy check for None or constant operands
+        if operand is None or Instruction.is_constant(operand):
             return None
 
         register = operand
