@@ -30,6 +30,9 @@ class Gadget(object):
         for instr in self.instruction_string.split(" ; "):
             self.instructions.append(Instruction(instr))
 
+        # Initialize score
+        self.score = 0.0
+
     def is_useless_op(self):
         """
         :return boolean: Returns True if the first instruction opcode is in the "useless" list, False otherwise

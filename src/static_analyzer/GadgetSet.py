@@ -62,16 +62,6 @@ class GadgetSet(object):
         self.averageROPQuality = 0.0
         self.averageJOPQuality = 0.0
         self.averageCOPQuality = 0.0
-        self.averageSyscallQuality = 0.0
-        self.averageJOPDispatcherQuality = 0.0
-        self.averageJOPDataLoaderQuality = 0.0
-        self.averageJOPInitializerQuality = 0.0
-        self.averageJOPTrampolineQuality = 0.0
-        self.averageCOPDispatcherQuality = 0.0
-        self.averageCOPStrongTrampolineQuality = 0.0
-        self.averageCOPIntrastackPivotQuality = 0.0
-        self.averageCOPDataLoaderQuality = 0.0
-        self.averageCOPInitializerQuality = 0.0
 
         # Run ROPgadget to populate total gadget set (includes duplicates and multi-branch gadgets)
         self.parse_gadgets(GadgetSet.runROPgadget(filepath, "--all --multibr"))
@@ -79,27 +69,6 @@ class GadgetSet(object):
         # Reject unusable gadgets, sort gadgets into their appropriate category sets, score gadgets, classify gadgets
         for gadget in self.allGadgets:
             self.analyze_gadget(gadget)
-
-        # TODO Delete this at some point
-        print("  INFO: Total number of all gadgets: " + str(len(self.allGadgets)))
-        print("  INFO: Number of rejected gadgets: " + str(self.cnt_rejected))
-        print("  INFO: Number of duplicate gadgets: " + str(self.cnt_duplicate))
-        print("  INFO: Unique ROP gadgets: " + str(len(self.ROPGadgets)))
-        print("  INFO: Unique JOP gadgets: " + str(len(self.JOPGadgets)))
-        print("  INFO: Unique COP gadgets: " + str(len(self.COPGadgets)))
-        print("  INFO: Unique SYS gadgets: " + str(len(self.SyscallGadgets)))
-        print("  INFO: Unique JOP dispatcher gadgets: " + str(len(self.JOPDispatchers)))
-        print("  INFO: Unique JOP initializer gadgets: " + str(len(self.JOPInitializers)))
-        print("  INFO: Unique JOP dataloader gadgets: " + str(len(self.JOPDataLoaders)))
-        print("  INFO: Unique JOP trampoline gadgets: " + str(len(self.JOPTrampolines)))
-        print("  INFO: Unique COP dispatcher gadgets: " + str(len(self.COPDispatchers)))
-        print("  INFO: Unique COP initializer gadgets: " + str(len(self.COPInitializers)))
-        print("  INFO: Unique COP dataloader gadgets: " + str(len(self.COPDataLoaders)))
-        print("  INFO: Unique COP strong trampoline gadgets: " + str(len(self.COPStrongTrampolines)))
-        print("  INFO: Unique COP intrastack pivot gadgets: " + str(len(self.COPIntrastackPivots)))
-
-        # TODO: Rolling marker for what has already been overhauled
-        return
 
     def parse_gadgets(self, output):
         """
@@ -196,10 +165,56 @@ class GadgetSet(object):
         else:
             self.add_if_unique(gadget, self.SyscallGadgets)
 
-        # Step 3: Determine the gadget score, which starts at 0 and is incremented by:
-        # 1) TODO list out gality criterion here
+        # Step 3: Determine the gadget scores, which start at 0 and are incremented for each detected side constraint
+        total_ROP_score = 0.0
+        total_JOP_score = 0.0
+        total_COP_score = 0.0
+
+        #TODO START HERE IMPLEMENT THESE
+        for rg in self.ROPGadgets:
+            # Check ROP-specific side constraints
+            rg.check_sp_target_of_operation()  # increase score if stack pointer family is target of certain ops TODO
+            rg.check_contains_leave()          # +2 if gadget contains an intermediate "leave" instruction TODO
+            rg.check_negative_sp_offsets()     # +2 if gadget's cumulative stack pointer offsets are negative TODO
+
+            # Check general side-constraints
+            rg.check_contains_conditional_op()      # +4 if gadget contains an intermediate conditional operation TODO
+            rg.check_value_target_of_operation()    # increase score if value carrying register is target of certain ops TODO
+            rg.check_bystanders_modified()          # increase score for each bystander register modified TODO
+
+            # Add to cumulative score
+            total_ROP_score += rg.score
+
+        for jg in self.JOPGadgets:
+            # Check JOP/COP-specific side constraints
+            jg.check_branch_target_of_operation()  # increase score if indirect branch register is target of certain ops TODO
+
+            # Check general side-constraints
+            jg.check_contains_conditional_op()  # +4 if gadget contains an intermediate conditional operation TODO
+            jg.check_value_target_of_operation()  # increase score if value carrying register is target of certain ops TODO
+            jg.check_bystanders_modified()  # increase score for each bystander register modified TODO
+
+            # Add to cumulative score
+            total_JOP_score += jg.score
+
+        for cg in self.COPGadgets:
+            # Check JOP/COP-specific side constraints
+            cg.check_branch_target_of_operation()  # increase score if indirect branch register is target of certain ops TODO
+
+            # Check general side-constraints
+            cg.check_contains_conditional_op()  # +4 if gadget contains an intermediate conditional operation TODO
+            cg.check_value_target_of_operation()  # increase score if value carrying register is target of certain ops TODO
+            cg.check_bystanders_modified()  # increase score for each bystander register modified TODO
+
+            # Add to cumulative score
+            total_COP_score += cg.score
 
         # Step 4: Calculate average quality score for sets
+        self.averageROPQuality = total_ROP_score / len(self.ROPGadgets)
+        self.averageJOPQuality = total_JOP_score / len(self.JOPGadgets)
+        self.averageCOPQuality = total_COP_score / len(self.COPGadgets)
+
+        # Step 5: Check for expressivity class satisfaction TODO
 
 
     def add_if_unique(self, gadget, collection):
