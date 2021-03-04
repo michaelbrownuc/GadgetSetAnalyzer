@@ -222,8 +222,8 @@ class Gadget(object):
 
     def clobbers_indirect_target(self):
         """
-        :return boolean: Returns True if the JOP gadget's instructions assign a non-static value to the stack pointer
-                         register, False otherwise.
+        :return boolean: Returns True if the JOP/COP gadget's instructions modify the indirect branch register in
+                         certain ways, False otherwise.
         """
         # Get the register family of the indirect jump / call
         last_instr = self.instructions[len(self.instructions)-1]
@@ -541,7 +541,7 @@ class Gadget(object):
 
     def check_register_ops(self):
         """
-        :return void: Increases gadget's score if it contains operations on a value carrying or bystander register.
+        :return void: Increases gadget's score if it contains operations on a value carrying or a bystander register
         """
         first_instr = self.instructions[0]
 
@@ -571,3 +571,44 @@ class Gadget(object):
                     self.score += 1.0
                 else:
                     self.score += 0.5
+
+    def check_branch_target_of_operation(self):
+        """
+        :return void: Increases gadget's score if the gadget has an intermediate instruction that performs certain
+                      operations on the indirect branch target register family.
+        """
+        last_instr = self.instructions[len(self.instructions)-1]
+        target_family = Instruction.get_operand_register_family(last_instr.op1)
+
+        # Scan instructions to determine if they modify the target register family
+        for i in range(len(self.instructions) - 1):
+            cur_instr = self.instructions[i]
+
+            # Ignore instructions that do not create values
+            if not cur_instr.creates_value():
+                continue
+
+            # Increase score by 3 for shift/rotate ops, and 2 for others
+            if Instruction.get_operand_register_family(cur_instr.op1) == target_family:
+                if cur_instr.opcode in ["shl", "shr", "sar", "sal", "ror", "rol", "rcr", "rcl"]:
+                    self.score += 3.0
+                else:    # All other modifications to target register
+                    self.score += 2.0
+
+    def check_memory_writes(self):
+        """
+        :return void: Increases gadget's score if the gadget has an instruction that writes to memory.
+        """
+        # Iterate through instructions except GPI
+        for i in range(len(self.instructions)-1):
+            cur_instr = self.instructions[i]
+
+            # Ignore instructions that do not create values
+            if not cur_instr.creates_value():
+                continue
+
+            # Have to check both operands for xchg instrucitons
+            if "xchg" in cur_instr.opcode and ("[" in cur_instr.op1 or "[" in cur_instr.op2):
+                self.score += 1.0
+            elif cur_instr.op1 is not None and "[" in cur_instr.op1:
+                self.score += 1.0

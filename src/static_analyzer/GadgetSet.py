@@ -80,8 +80,11 @@ class GadgetSet(object):
         if self.total_COP_score != 0.0:
             self.averageCOPQuality = self.total_COP_score / len(self.COPGadgets)
 
-        # Scan gadgets to determine set expressivity
+
+        # Scan ROP gadgets to determine set expressivity
         # TODO
+
+        # TODO Add an optional summary print of counts rejected, duplicate, scores etc.  Can recover some of this from github, previous commits
 
     def parse_gadgets(self, output):
         """
@@ -158,8 +161,8 @@ class GadgetSet(object):
                 # Next check general side-constraints
                 gadget.check_contains_conditional_op()    # increase score if gadget contains conditional operations
                 gadget.check_register_ops()               # increases score for ops on value and bystander register
+                gadget.check_memory_writes()              # increases score for each memory write in the gadget
 
-                # Add to cumulative score
                 self.total_ROP_score += gadget.score
 
         elif gpi.startswith("jmp"):
@@ -174,13 +177,13 @@ class GadgetSet(object):
             else:
                 if self.add_if_unique(gadget, self.JOPGadgets):
                     # Determine score, first checking JOP-specific side constraints
-                    # jg.check_branch_target_of_operation()  # increase score if indirect branch register is target of certain ops TODO
-                    # TODO FINISH THE ABOVE AND CHECK on overall gadget scores and gadgets with 0 score for sanity
+                    gadget.check_branch_target_of_operation()  # increase score if branch register is target of ops
+
                     # Next check general side-constraints
                     gadget.check_contains_conditional_op()  # increase score if gadget contains conditional operations
                     gadget.check_register_ops()  # increases score for ops on value and bystander register
+                    gadget.check_memory_writes()  # increases score for each memory write in the gadget
 
-                    # Add to cumulative score
                     self.total_JOP_score += gadget.score
 
         elif gpi.startswith("call"):
@@ -197,13 +200,13 @@ class GadgetSet(object):
             else:
                 if self.add_if_unique(gadget, self.COPGadgets):
                     # Determine score, first checking COP-specific side constraints
-                    # jg.check_branch_target_of_operation()  # increase score if indirect branch register is target of certain ops TODO
+                    gadget.check_branch_target_of_operation()  # increase score if branch register is target of ops
 
                     # Next check general side-constraints
                     gadget.check_contains_conditional_op()  # increase score if gadget contains conditional operations
                     gadget.check_register_ops()  # increases score for ops on value and bystander register
+                    gadget.check_memory_writes()  # increases score for each memory write in the gadget
 
-                    # Add to cumulative score
                     self.total_COP_score += gadget.score
         else:
             self.add_if_unique(gadget, self.SyscallGadgets)

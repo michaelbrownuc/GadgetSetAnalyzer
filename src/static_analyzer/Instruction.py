@@ -82,7 +82,7 @@ class Instruction(object):
         if self.opcode.startswith("j"):
             return False
 
-        if self.opcode in ["cmp", "test", "push", "ljump"] or self.op1 is None:
+        if self.opcode in ["cmp", "test", "push", "ljump", "out"] or self.op1 is None:
             return False
 
         return True
