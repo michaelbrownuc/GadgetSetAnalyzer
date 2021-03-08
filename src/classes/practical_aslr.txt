@@ -1,1 +1,94 @@
-# TODO STARTING FROM SCRATH HERE
+General rules from microgadget scanner
+
+# 0 Jumps
+jmp <GPR> (except sp and bp)
+push <GPR> (except sp and bp)
+
+# 1 Loads
+lods (starts with!)
+jmp [<GPR>] (except sp and bp)
+[mov, add, adc, sub, sbb, xor, and, or, ] <GPR>, [<GPR>] (both except sp, second except bp)
+
+# 2 Store
+stos (Starts with!)
+mov [<GPR>], GPR (except sp)
+
+# 3 ESP load
+pusha
+[mov, add, adc, xor, and, or] <GPR> <SP family> (except sp)
+
+# 4 Clear CF
+clc
+sahf
+["test", "add", "adc", "sub", "sbb", "and", "or", "xor", "cmp"] <GPR>, <GPR> (except sp )
+
+# 5 pop eax esi edi
+pop <AX family>
+pop <SI family>
+pop <DI family>
+
+# 6 pop BP, BX, CX, DX,
+pop <BP family>
+pop <BX family>
+pop <CX family>
+pop <DX family>
+
+# 7 leave
+leave
+
+# 8 Increment
+inc <GPR> (except sp)
+
+# 9 Decrement
+dec <GPR> (except sp)
+
+# 10 Addition
+[add, adc, sub, sbb]  <GPR> <GPR> (except sp)
+
+# 11 AX to BX
+xchg AX, BX
+pop BX
+mov BX, AX
+
+# 12 AX to BX 2
+xchg AX, BX
+[mov, add, adc, sub, sbb, xor, and, or] BX, AX
+
+# 13 BX to AX
+xchg BX, AX
+pop AX
+mov AX, BX
+
+# 14 BX to AX 2
+xchg BX, AX
+[mov, add, adc, sub, sbb, xor, and, or] AX, BX
+
+# 15 AX to CX
+# 16 AX to CX 2
+
+#17 CX to AX
+#18 CX to AX 2
+
+#19 AX to DX
+#20 AX to DX 2
+
+#21 DX to AX
+#22 DX to AX 2
+
+#23 AX to BP
+#24 AX to BP 2
+
+#25 BP to AX
+#26 BP to AX 2
+
+#27 AX to SI
+#28 AX to SI 2
+
+#29 SI to AX
+#30 SI to AX 2
+
+#31 AX to DI
+#32 AX to DI 2
+
+#33 DI to AX
+#34 DI to AX 2

@@ -1,4 +1,4 @@
-classname inc/dec
+classname inc/dec #0
 inc rax,
 inc rbx,
 inc rcx,
@@ -41,7 +41,7 @@ inc dword ptr [edx],
 inc dword ptr [ebp],
 inc dword ptr [esi],
 inc dword ptr [edi],
-classname pop
+classname pop # 1
 pop eax,
 pop ebx,
 pop ecx,
@@ -56,7 +56,7 @@ pop rdx,
 pop rbp,
 pop rsi,
 pop rdi,
-classname add/adc/sub/sbb
+classname add/adc/sub/sbb # 2
 add rax, rbx
 add rax, rcx
 add rax, rdx
@@ -1401,7 +1401,7 @@ sbb ecx, dword ptr [edi]
 sbb edx, dword ptr [edi]
 sbb ebp, dword ptr [edi]
 sbb esi, dword ptr [edi]
-classname xor/not/neg
+classname xor/not/neg # 3
 xor rax, rbx
 xor rax, rcx
 xor rax, rdx
@@ -1794,7 +1794,7 @@ neg [edx],
 neg [ebp],
 neg [esi],
 neg [edi],
-classname and/or
+classname and/or # 4
 and rax, rbx
 and rax, rcx
 and rax, rdx
@@ -2467,7 +2467,7 @@ or dword ptr [edi], ecx
 or dword ptr [edi], edx
 or dword ptr [edi], ebp
 or dword ptr [edi], esi
-classname load from memory
+classname load from memory # 5
 mov rax, qword ptr [rbx]
 mov rax, qword ptr [rcx]
 mov rax, qword ptr [rdx]
@@ -2847,7 +2847,7 @@ or ecx, dword ptr [edi]
 or edx, dword ptr [edi]
 or ebp, dword ptr [edi]
 or esi, dword ptr [edi]
-classname store to memory
+classname store to memory # 6
 stosd dword ptr [rdi], eax
 stosq qword ptr [rdi], rax
 stosd dword ptr [edi], eax
@@ -3221,7 +3221,7 @@ or dword ptr [edi], ecx
 or dword ptr [edi], edx
 or dword ptr [edi], ebp
 or dword ptr [edi], esi
-classname CF
+classname CF # 7
 clc,
 sahf,
 aaa,
@@ -4572,7 +4572,7 @@ sbb ecx, dword ptr [edi]
 sbb edx, dword ptr [edi]
 sbb ebp, dword ptr [edi]
 sbb esi, dword ptr [edi]
-classname load rsp/esp
+classname load rsp/esp # 8
 add rax, rsp
 add rbx, rsp
 add rcx, rsp
@@ -4713,7 +4713,7 @@ sbb dword ptr [edx], esp
 sbb dword ptr [esi], esp
 sbb dword ptr [edi], esp
 sbb dword ptr [ebp], esp
-classname set rsp/esp
+classname set rsp/esp # 9
 pop rsp,
 xchg rax, rsp
 xchg rbx, rsp
@@ -4886,7 +4886,7 @@ sbb esp, dword ptr [edx]
 sbb esp, dword ptr [esi]
 sbb esp, dword ptr [edi]
 sbb esp, dword ptr [ebp]
-classname loadflags
+classname loadflags # 10
 lahf,
 pushf,
 adc rax, rbx
@@ -5561,22 +5561,22 @@ sbb ecx, dword ptr [edi]
 sbb edx, dword ptr [edi]
 sbb ebp, dword ptr [edi]
 sbb esi, dword ptr [edi]
-classname xchg by ebx/rbx
+classname xchg by ebx/rbx # 11
 xchg rax, rbx
 xchg eax, ebx
-classname xchg by ecx/rcx
+classname xchg by ecx/rcx # 12
 xchg rax, rcx
 xchg eax, ecx
-classname xchg by edx/rdx
+classname xchg by edx/rdx # 13
 xchg rax, rdx
 xchg eax, edx
-classname xchg by ebp/rbp
+classname xchg by ebp/rbp # 14
 xchg rax, rbp
 xchg eax, ebp
-classname xchg by esi/rsi
+classname xchg by esi/rsi # 15
 xchg rax, rsi
 xchg eax, esi
-classname xchg by edi/rdi
+classname xchg by edi/rdi # 16
 xchg rax, rdi
 xchg eax, edi
 

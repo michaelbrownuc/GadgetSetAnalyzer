@@ -1,19 +1,19 @@
-classname dec rax/rdi
+classname dec rax/rdi # 0
 dec rax,
 dec eax,
 dec rdi,
 dec edi,
-classname inc rax/rdi
+classname inc rax/rdi # 1
 inc rax,
 inc eax,
 inc rdi,
 inc edi,
-classname pop rax/rdi
+classname pop rax/rdi # 2
 pop rax,
 pop eax,
 pop rdi,
 pop edi,
-classname load esi
+classname load esi # 3
 xchg esi, eax
 xchg rsi, rax
 xchg eax, esi
@@ -36,12 +36,12 @@ lea rsi, dword ptr [eax]
 lea rsi, dword ptr [edi]
 jmp qword ptr [rax],
 jmp qword ptr [rdi],
-classname xchg eax/edi
+classname xchg eax/edi # 4
 xchg rax, rdi
 xchg eax, edi
 xchg rdi, rax
 xchg edi, eax
-classname jump/push
+classname jump/push # 5
 jmp qword ptr [rax],
 jmp qword ptr [rsi],
 jmp qword ptr [rdi],
@@ -59,7 +59,7 @@ push eax,
 push edi,
 push rax,
 push rdi,
-classname CF
+classname CF # 6
 clc,
 sahf,
 test rax, rax
@@ -224,7 +224,7 @@ cmp edi, esi
 cmp esi, eax
 cmp esi, edi
 cmp esi, esi
-classname store to memory
+classname store to memory # 7
 stosd dword ptr [rdi], eax
 stosq qword ptr [rdi], rax
 stosd dword ptr [edi], eax
@@ -283,7 +283,7 @@ or dword ptr [esi], eax
 or dword ptr [esi], edi
 or dword ptr [edi], eax
 or dword ptr [edi], esi
-classname load/jump to address
+classname load/jump to address # 8
 lodsq rax, qword ptr [rsi]
 lods eax, dword ptr [esi]
 lodsd eax, dword ptr [esi]
@@ -441,9 +441,9 @@ sbb eax, dword ptr [esi]
 sbb edi, dword ptr [esi]
 sbb eax, dword ptr [edi]
 sbb esi, dword ptr [edi]
-classname leave
+classname leave # 9
 leave,
-classname set ebp/rbp
+classname set ebp/rbp # 10
 pop rbp,
 xchg rax, rbp
 xchg rbx, rbp
