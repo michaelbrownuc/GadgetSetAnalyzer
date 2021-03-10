@@ -74,6 +74,14 @@ class GadgetSet(object):
         for gadget in self.allGadgets:
             self.analyze_gadget(gadget)
 
+        # Calculate gadget set counts / quality metrics
+        self.total_sp_gadgets = len(self.SyscallGadgets) + len(self.JOPInitializers) + len(self.JOPTrampolines) + \
+            len(self.JOPDispatchers) + len(self.JOPDataLoaders) + len(self.COPDataLoaders) + \
+            len(self.COPDispatchers) + len(self.COPInitializers) + len(self.COPStrongTrampolines) + \
+            len(self.COPIntrastackPivots)
+        self.total_unique_gadgets = self.total_sp_gadgets + len(self.ROPGadgets) + len(self.JOPGadgets) + \
+            len(self.COPGadgets)
+
         if self.total_ROP_score != 0.0:
             self.averageROPQuality = self.total_ROP_score / len(self.ROPGadgets)
         if self.total_JOP_score != 0.0:
