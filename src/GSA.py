@@ -145,13 +145,14 @@ for key in variants_dict.keys():
     print("Analyzing variant package [" + key + "] located at: " + filepath)
 
     variant = GadgetSet(key, filepath, args.output_addresses)
+    stat = GadgetStats(original, variant)
 
 
 
     # TODO: Rolling marker for what has already been overhauled
     exit()
     #TODO next work on gadget stats
-    stat = GadgetStats(original, variant)
+
 
     # Output file 1 variant lines
     stat_counts = stat.variant.name + "," + str(len(stat.variant.totalUniqueGadgets)) + " (" + str(stat.totalUniqueCountDiff) + "; " + rate_format.format(stat.totalUniqueCountReduction) + "),"
