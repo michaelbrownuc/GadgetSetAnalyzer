@@ -33,7 +33,7 @@ class GadgetSet(object):
         # Init the CFG with angr for finding functions
         if createCFG:
             try:
-                proj = angr.Project(filepath, main_opts={'base_addr':0}, load_options={'auto_load_libs': False})
+                proj = angr.Project(filepath, main_opts={'base_addr': 0}, load_options={'auto_load_libs': False})
                 self.cfg = proj.analyses.CFG()
                 self.cfg.normalize()
             except Exception as e:
@@ -95,7 +95,36 @@ class GadgetSet(object):
         for gadget in self.JOPGadgets:
             self.classify_JOP_gadget(gadget)
 
-        # TODO Add an optional summary print of counts rejected, duplicate, scores etc.  Can recover some of this from github, previous commits
+        # Calculate satisfaction scores
+        self.practical_ROP_expressivity = sum(self.practical_ROP)
+        self.practical_ASLR_ROP_expressivity = sum(self.practical_ASLR_ROP)
+        self.turing_complete_ROP_expressivity = sum(self.turing_complete_ROP)
+
+        # Used for Debug mostly, kept in case useful.
+        # print("  INFO: Total number of all gadgets: " + str(len(self.allGadgets)))
+        # print("  INFO: Number of rejected gadgets: " + str(self.cnt_rejected))
+        # print("  INFO: Number of duplicate gadgets: " + str(self.cnt_duplicate))
+        # print("  INFO: Unique ROP gadgets: " + str(len(self.ROPGadgets)))
+        # print("  INFO: Unique JOP gadgets: " + str(len(self.JOPGadgets)))
+        # print("  INFO: Unique COP gadgets: " + str(len(self.COPGadgets)))
+        # print("  INFO: Unique SYS gadgets: " + str(len(self.SyscallGadgets)))
+        # print("  INFO: Unique JOP dispatcher gadgets: " + str(len(self.JOPDispatchers)))
+        # print("  INFO: Unique JOP initializer gadgets: " + str(len(self.JOPInitializers)))
+        # print("  INFO: Unique JOP dataloader gadgets: " + str(len(self.JOPDataLoaders)))
+        # print("  INFO: Unique JOP trampoline gadgets: " + str(len(self.JOPTrampolines)))
+        # print("  INFO: Unique COP dispatcher gadgets: " + str(len(self.COPDispatchers)))
+        # print("  INFO: Unique COP initializer gadgets: " + str(len(self.COPInitializers)))
+        # print("  INFO: Unique COP dataloader gadgets: " + str(len(self.COPDataLoaders)))
+        # print("  INFO: Unique COP strong trampoline gadgets: " + str(len(self.COPStrongTrampolines)))
+        # print("  INFO: Unique COP intrastack pivot gadgets: " + str(len(self.COPIntrastackPivots)))
+        # print("-----")
+        # print("  INFO: ROP - Total Score: " + str(self.total_ROP_score) + "  Average Score: " + str(self.averageROPQuality))
+        # print("  INFO: JOP - Total Score: " + str(self.total_JOP_score) + "  Average Score: " + str(self.averageJOPQuality))
+        # print("  INFO: COP - Total Score: " + str(self.total_COP_score) + "  Average Score: " + str(self.averageCOPQuality))
+        # print("-----")
+        # print("  INFO: Prac ROP - Expressivity: " + str(self.practical_ROP_expressivity))
+        # print("  INFO: ASLR-proof Prac ROP - Expressivity: " + str(self.practical_ASLR_ROP_expressivity))
+        # print("  INFO: Simple Turing Complete - Expressivity: " + str(self.turing_complete_ROP_expressivity))
 
     def parse_gadgets(self, output):
         """
@@ -498,7 +527,7 @@ class GadgetSet(object):
             self.practical_ASLR_ROP[29] = True
             self.practical_ASLR_ROP[33] = True
 
-        #XCHG AX with another GPR
+        # XCHG AX with another GPR
         if opcode == "xchg" and "[" not in op1 and "[" not in op2:
             if op1_family == 0:
                 if op2_family == 1:
