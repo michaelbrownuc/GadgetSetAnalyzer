@@ -81,7 +81,6 @@ class GadgetSet(object):
         if self.total_COP_score != 0.0:
             self.averageCOPQuality = self.total_COP_score / len(self.COPGadgets)
 
-
         # Scan ROP gadgets to determine set expressivity
         self.practical_ROP = [False for i in range(11)]
         self.practical_ASLR_ROP = [False for i in range(35)]
@@ -92,12 +91,9 @@ class GadgetSet(object):
             if gadget.score <= quality_threshold:
                 self.classify_gadget(gadget)
 
-        # Corner cases:
-        # 1 If practical ROP class 4 (index 3) not satisfied by a ROP gadget, a JOP gadget targeting [rax] or [rdi] will do TODO
-        # 2 If practical ROP class 6 (index 5) not satisfied by a ROP gadget, a JOP gadget targeting rax, [rax], rdi, or [rdi] will do TODO
-        # 3 If practical ROP class 8 (index 7) not satisfied by a ROP Gadget, a a JOP gadget targeting [rax], [rdi], [rsi] will do TODO
-        # 4 Practical ASLR ROP class 1 (index 0) can be satisfied with jumps to GPRs TODO
-        # 4 Practical ASLR ROP class 2 (index 1) can be satisfied with jumps to GPRs TODO
+        # Perform a secondary scan of JOP gadgets that can be used instead of some ROP gadgets
+        for gadget in self.JOPGadgets:
+            self.classify_JOP_gadget(gadget)
 
         # TODO Add an optional summary print of counts rejected, duplicate, scores etc.  Can recover some of this from github, previous commits
 
@@ -256,16 +252,11 @@ class GadgetSet(object):
         opcode = first_instr.opcode
         op1 = first_instr.op1
         op2 = first_instr.op2
-        op1_family = Instruction.get_operand_register_family(op1)
-        op2_family = Instruction.get_operand_register_family(op2)
+        op1_family = Instruction.get_word_operand_register_family(op1)
+        op2_family = Instruction.get_word_operand_register_family(op2)
 
-        # TODO DELET THIS, TESTING ONLY, RESETS satisfaction array
-        #self.practical_ROP = [False for i in range(11)]
-        #self.turing_complete_ROP = [False for i in range(17)]
-        #self.practical_ASLR_ROP = [False for i in range(35)]
-
-        # TODO: For performance, iterate through the expressivity classes and perform analysis. Analysis rules should
-        #  set as many cases as possible.
+        # For performance, iterate through the expressivity classes and perform analysis. Analysis rules should
+        # set as many classes as possible.
         if self.practical_ROP[0] is False:
             if opcode == "dec" and op1_family in [0, 5] and "[" not in op1:
                 self.practical_ROP[0] = True
@@ -343,7 +334,6 @@ class GadgetSet(object):
             if opcode == "leave":
                 self.practical_ROP[9] = True
                 self.practical_ASLR_ROP[7] = True
-                print("Instr: " + first_instr.raw + " satisfies practical ASLR ROP class LEAVE")
 
         if self.practical_ROP[10] is False:
             if (opcode == "pop" and op1_family == 6 and "[" not in op1) or \
@@ -450,153 +440,253 @@ class GadgetSet(object):
         if self.practical_ASLR_ROP[0] is False:
             if opcode == "push" and op1_family not in [None, 6, 7] and "[" not in op1:
                 self.practical_ASLR_ROP[0] = True
-                print("Instr: " + first_instr.raw + " satisfies practical ASLR ROP class JMP/PSH <GPR>")
 
         if self.practical_ASLR_ROP[1] is False:
             if (opcode.startswith("lods") or opcode in ["mov", "add", "adc", "sub", "sbb", "and", "or", "xor"]) and \
                "[" in op2 and "+" not in op2 and "-" not in op2 and "*" not in op2 and \
                op1_family not in [None, 7] and op2_family not in [None, 6, 7] and op1_family != op2_family:
                 self.practical_ASLR_ROP[1] = True
-                print("Instr: " + first_instr.raw + " satisfies practical ASLR ROP class LOAD <GPR> [<GPR>]")
 
         if self.practical_ASLR_ROP[2] is False:
             if (opcode.startswith("stos") or opcode == "mov") and "[" in op1 and "+" not in op1 and \
                "-" not in op1 and "*" not in op1 and op1_family not in [None, 7] and op2_family not in [None, 7] and \
                op1_family != op2_family:
                 self.practical_ASLR_ROP[2] = True
-                print("Instr: " + first_instr.raw + " satisfies practical ASLR ROP class STORE [<GPR>] <GPR>")
 
         if self.practical_ASLR_ROP[3] is False:
-            #TODO ESP LOAD
-            pass
+            if opcode in ["mov", "add", "adc", "and", "or", "xor"] and "[" not in op1 and "[" not in op2 and \
+               op1_family not in [None, 7] and op2_family == 7:
+                self.practical_ASLR_ROP[3] = True
 
         if self.practical_ASLR_ROP[4] is False:
             if opcode in ["clc", "sahf"] or \
                (opcode in ["test", "add", "adc", "sub", "sbb", "and", "or", "xor", "cmp"] and
                op1_family not in [None, 7] and op2_family not in [None, 7] and "[" not in op1 and "[" not in op2):
                 self.practical_ASLR_ROP[4] = True
-                print("Instr: " + first_instr.raw + " satisfies practical ASLR ROP class CLEAR FLAGS")
 
         if self.practical_ASLR_ROP[5] is False:
             if opcode == "pop" and op1_family in [0, 4, 5] and "[" not in op1:
                 self.practical_ASLR_ROP[5] = True
-                print("Instr: " + first_instr.raw + " satisfies practical ASLR ROP class POP AX/SI/DI")
 
         if self.practical_ASLR_ROP[6] is False:
             if opcode == "pop" and op1_family in [1, 2, 3, 6] and "[" not in op1:
-                self.practical_ASLR_ROP[5] = True
-                print("Instr: " + first_instr.raw + " satisfies practical ASLR ROP class POP CX/CX/DX/BP")
+                self.practical_ASLR_ROP[6] = True
 
         # NOTE class 8 (index 7) is combined above
 
         if self.practical_ASLR_ROP[8] is False:
             if opcode == "inc" and op1_family not in [None, 7] and "[" not in op1:
                 self.practical_ASLR_ROP[8] = True
-                print("Instr: " + first_instr.raw + " satisfies practical ASLR ROP class INC <GPR>")
 
         if self.practical_ASLR_ROP[9] is False:
             if opcode == "dec" and op1_family not in [None, 7] and "[" not in op1:
                 self.practical_ASLR_ROP[9] = True
-                print("Instr: " + first_instr.raw + " satisfies practical ASLR ROP class DEC <GPR>")
 
         if self.practical_ASLR_ROP[10] is False:
             if opcode in ["add", "adc", "sub", "sbb"] and op1_family not in [None, 7] and "[" not in op1 and \
                op2_family not in [None, 7] and "[" not in op2 and op1_family != op2_family:
                 self.practical_ASLR_ROP[10] = True
-                print("Instr: " + first_instr.raw + " satisfies practical ASLR ROP class [ADD|SDC|SUB|SBB] <GPR> <GPR>")
 
+        # For the next 24 classes, some fairly common gadgets will satisfy many classes and significant
+        # overlap in definitions exists. Check these without first seeing if the class is satisfied
+        # POP AX
+        if opcode == "pop" and "[" not in op1 and op1_family == 0:
+            self.practical_ASLR_ROP[13] = True
+            self.practical_ASLR_ROP[17] = True
+            self.practical_ASLR_ROP[21] = True
+            self.practical_ASLR_ROP[25] = True
+            self.practical_ASLR_ROP[29] = True
+            self.practical_ASLR_ROP[33] = True
+
+        #XCHG AX with another GPR
+        if opcode == "xchg" and "[" not in op1 and "[" not in op2:
+            if op1_family == 0:
+                if op2_family == 1:
+                    self.practical_ASLR_ROP[11] = True
+                    self.practical_ASLR_ROP[12] = True
+                    self.practical_ASLR_ROP[13] = True
+                    self.practical_ASLR_ROP[14] = True
+                elif op2_family == 2:
+                    self.practical_ASLR_ROP[15] = True
+                    self.practical_ASLR_ROP[16] = True
+                    self.practical_ASLR_ROP[17] = True
+                    self.practical_ASLR_ROP[18] = True
+                elif op2_family == 3:
+                    self.practical_ASLR_ROP[19] = True
+                    self.practical_ASLR_ROP[20] = True
+                    self.practical_ASLR_ROP[21] = True
+                    self.practical_ASLR_ROP[22] = True
+                elif op2_family == 6:
+                    self.practical_ASLR_ROP[23] = True
+                    self.practical_ASLR_ROP[24] = True
+                    self.practical_ASLR_ROP[25] = True
+                    self.practical_ASLR_ROP[26] = True
+                elif op2_family == 4:
+                    self.practical_ASLR_ROP[27] = True
+                    self.practical_ASLR_ROP[28] = True
+                    self.practical_ASLR_ROP[29] = True
+                    self.practical_ASLR_ROP[30] = True
+                elif op2_family == 5:
+                    self.practical_ASLR_ROP[31] = True
+                    self.practical_ASLR_ROP[32] = True
+                    self.practical_ASLR_ROP[33] = True
+                    self.practical_ASLR_ROP[34] = True
+
+            elif op2_family == 0:
+                if op1_family == 1:
+                    self.practical_ASLR_ROP[11] = True
+                    self.practical_ASLR_ROP[12] = True
+                    self.practical_ASLR_ROP[13] = True
+                    self.practical_ASLR_ROP[14] = True
+                elif op1_family == 2:
+                    self.practical_ASLR_ROP[15] = True
+                    self.practical_ASLR_ROP[16] = True
+                    self.practical_ASLR_ROP[17] = True
+                    self.practical_ASLR_ROP[18] = True
+                elif op1_family == 3:
+                    self.practical_ASLR_ROP[19] = True
+                    self.practical_ASLR_ROP[20] = True
+                    self.practical_ASLR_ROP[21] = True
+                    self.practical_ASLR_ROP[22] = True
+                elif op1_family == 6:
+                    self.practical_ASLR_ROP[23] = True
+                    self.practical_ASLR_ROP[24] = True
+                    self.practical_ASLR_ROP[25] = True
+                    self.practical_ASLR_ROP[26] = True
+                elif op1_family == 4:
+                    self.practical_ASLR_ROP[27] = True
+                    self.practical_ASLR_ROP[28] = True
+                    self.practical_ASLR_ROP[29] = True
+                    self.practical_ASLR_ROP[30] = True
+                elif op1_family == 5:
+                    self.practical_ASLR_ROP[31] = True
+                    self.practical_ASLR_ROP[32] = True
+                    self.practical_ASLR_ROP[33] = True
+                    self.practical_ASLR_ROP[34] = True
+
+        # MOV between AX and another GPR
+        if opcode == "mov" and "[" not in op1 and "[" not in op2:
+            if op1_family == 0:
+                if op2_family == 1:
+                    self.practical_ASLR_ROP[13] = True
+                    self.practical_ASLR_ROP[14] = True
+                elif op2_family == 2:
+                    self.practical_ASLR_ROP[17] = True
+                    self.practical_ASLR_ROP[18] = True
+                elif op2_family == 3:
+                    self.practical_ASLR_ROP[21] = True
+                    self.practical_ASLR_ROP[22] = True
+                elif op2_family == 6:
+                    self.practical_ASLR_ROP[25] = True
+                    self.practical_ASLR_ROP[26] = True
+                elif op2_family == 4:
+                    self.practical_ASLR_ROP[29] = True
+                    self.practical_ASLR_ROP[30] = True
+                elif op2_family == 5:
+                    self.practical_ASLR_ROP[33] = True
+                    self.practical_ASLR_ROP[34] = True
+
+            elif op2_family == 0:
+                if op1_family == 1:
+                    self.practical_ASLR_ROP[11] = True
+                    self.practical_ASLR_ROP[12] = True
+                elif op1_family == 2:
+                    self.practical_ASLR_ROP[15] = True
+                    self.practical_ASLR_ROP[16] = True
+                elif op1_family == 3:
+                    self.practical_ASLR_ROP[19] = True
+                    self.practical_ASLR_ROP[20] = True
+                elif op1_family == 6:
+                    self.practical_ASLR_ROP[23] = True
+                    self.practical_ASLR_ROP[24] = True
+                elif op1_family == 4:
+                    self.practical_ASLR_ROP[27] = True
+                    self.practical_ASLR_ROP[28] = True
+                elif op1_family == 5:
+                    self.practical_ASLR_ROP[31] = True
+                    self.practical_ASLR_ROP[32] = True
+
+        # ["add", "adc", "sub", "sbb", "and", "or", "xor"] between AX and another GPR
+        if opcode in ["add", "adc", "sub", "sbb", "and", "or", "xor"] and "[" not in op1 and "[" not in op2:
+            if op1_family == 0:
+                if op2_family == 1:
+                    self.practical_ASLR_ROP[14] = True
+                elif op2_family == 2:
+                    self.practical_ASLR_ROP[18] = True
+                elif op2_family == 3:
+                    self.practical_ASLR_ROP[22] = True
+                elif op2_family == 6:
+                    self.practical_ASLR_ROP[26] = True
+                elif op2_family == 4:
+                    self.practical_ASLR_ROP[30] = True
+                elif op2_family == 5:
+                    self.practical_ASLR_ROP[34] = True
+
+            elif op2_family == 0:
+                if op1_family == 1:
+                    self.practical_ASLR_ROP[12] = True
+                elif op1_family == 2:
+                    self.practical_ASLR_ROP[16] = True
+                elif op1_family == 3:
+                    self.practical_ASLR_ROP[20] = True
+                elif op1_family == 6:
+                    self.practical_ASLR_ROP[24] = True
+                elif op1_family == 4:
+                    self.practical_ASLR_ROP[28] = True
+                elif op1_family == 5:
+                    self.practical_ASLR_ROP[32] = True
+
+        # Resume checks for individual classes 11, 15, 19, 23, 27, and 31. Others entirely checked entirely above
         if self.practical_ASLR_ROP[11] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[12] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[13] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[14] is False:
-            #TODO
-            pass
+            if opcode == "pop" and "[" not in op1 and op1_family == 1:
+                self.practical_ASLR_ROP[11] = True
 
         if self.practical_ASLR_ROP[15] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[16] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[17] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[18] is False:
-            #TODO
-            pass
+            if opcode == "pop" and "[" not in op1 and op1_family == 2:
+                self.practical_ASLR_ROP[15] = True
 
         if self.practical_ASLR_ROP[19] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[20] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[21] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[22] is False:
-            #TODO
-            pass
+            if opcode == "pop" and "[" not in op1 and op1_family == 3:
+                self.practical_ASLR_ROP[19] = True
 
         if self.practical_ASLR_ROP[23] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[24] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[25] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[26] is False:
-            #TODO
-            pass
+            if opcode == "pop" and "[" not in op1 and op1_family == 6:
+                self.practical_ASLR_ROP[23] = True
 
         if self.practical_ASLR_ROP[27] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[28] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[29] is False:
-            #TODO
-            pass
-
-        if self.practical_ASLR_ROP[30] is False:
-            #TODO
-            pass
+            if opcode == "pop" and "[" not in op1 and op1_family == 4:
+                self.practical_ASLR_ROP[27] = True
 
         if self.practical_ASLR_ROP[31] is False:
-            #TODO
-            pass
+            if opcode == "pop" and "[" not in op1 and op1_family == 5:
+                self.practical_ASLR_ROP[31] = True
 
-        if self.practical_ASLR_ROP[32] is False:
-            #TODO
-            pass
+    def classify_JOP_gadget(self, gadget):
+        """
+        Analyzes a gadget to determine which expressivity classes it satisfies
+        :param Gadget gadget: gadget to analyze
+        :return: None, but modifies Gadget expressivity collections
+        """
+        last_instr = gadget.instructions[len(gadget.instructions)-1]
+        op1 = last_instr.op1
+        op1_family = Instruction.get_word_operand_register_family(op1)
 
-        if self.practical_ASLR_ROP[33] is False:
-            #TODO
-            pass
+        if self.practical_ROP[3] is False:
+            if "[" in op1 and op1_family in [0, 5] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ROP[3] = True
 
-        if self.practical_ASLR_ROP[34] is False:
-            #TODO
-            pass
+        if self.practical_ROP[5] is False:
+            if op1_family in [0, 5] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ROP[5] = True
+
+        if self.practical_ROP[7] is False:
+            if "[" in op1 and op1_family in [0, 4, 5] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ROP[7] = True
+
+        if self.practical_ASLR_ROP[0] is False:
+            if "[" not in op1 and op1_family not in [None, 6, 7]:
+                self.practical_ASLR_ROP[0] = True
+
+        if self.practical_ASLR_ROP[1] is False:
+            if "[" in op1 and op1_family not in [None, 6, 7] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ASLR_ROP[1] = True

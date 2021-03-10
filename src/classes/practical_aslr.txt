@@ -14,7 +14,6 @@ stos (Starts with!)
 mov [<GPR>], GPR (except sp)
 
 # 3 ESP load
-pusha
 [mov, add, adc, xor, and, or] <GPR> <SP family> (except sp)
 
 # 4 Clear CF

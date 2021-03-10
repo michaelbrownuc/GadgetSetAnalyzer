@@ -31,6 +31,23 @@ class Instruction(object):
                          ["r14", "r14d", "r14w", "r14b"],   # 14
                          ["r15", "r15d", "r15w", "r15b"]]   # 15
 
+    word_register_families = [["rax", "eax", "ax"],     # 0
+                              ["rbx", "ebx", "bx"],     # 1
+                              ["rcx", "ecx", "cx"],     # 2
+                              ["rdx", "edx", "dx"],     # 3
+                              ["rsi", "esi", "si"],     # 4
+                              ["rdi", "edi", "di"],     # 5
+                              ["rbp", "ebp", "bp"],     # 6
+                              ["rsp", "esp", "sp"],     # 7
+                              ["r8", "r8d", "r8w"],     # 8
+                              ["r9", "r9d", "r9w"],     # 9
+                              ["r10", "r10d", "r10w"],  # 10
+                              ["r11", "r11d", "r11w"],  # 11
+                              ["r12", "r12d", "r12w"],  # 12
+                              ["r13", "r13d", "r13w"],  # 13
+                              ["r14", "r14d", "r14w"],  # 14
+                              ["r15", "r15d", "r15w"]]  # 15
+
     def __init__(self, raw_instr):
         """
         Gadget constructor
@@ -156,6 +173,38 @@ class Instruction(object):
                 return i
 
         # Default return for non-integer registers, instruction pointer register, etc.
+        return None
+
+    @staticmethod
+    def get_word_operand_register_family(operand):
+        # Dummy check for None or constant operands
+        if operand is None or Instruction.is_constant(operand):
+            return None
+
+        register = operand
+
+        # Check if operand is a pointer, if so pull register from brackets
+        pointer_loc = operand.find('[')
+        if pointer_loc != -1:
+            next_space_loc = operand.find(' ', pointer_loc)
+            end_bracket_loc = operand.find(']')
+            mult_loc = operand.find('*', pointer_loc)
+            if next_space_loc == -1 and mult_loc == -1:
+                register = operand[pointer_loc + 1: end_bracket_loc]
+            elif mult_loc == -1:
+                register = operand[pointer_loc + 1: next_space_loc]
+            elif next_space_loc == -1:
+                register = operand[pointer_loc + 1: mult_loc]
+            else:
+                end = min(next_space_loc, mult_loc)
+                register = operand[pointer_loc + 1: end]
+
+        # Iterate through families, find and return the index
+        for i in range(len(Instruction.word_register_families)):
+            if register in Instruction.word_register_families[i]:
+                return i
+
+        # Default return for non-integer registers, instruction pointer register, byte registers etc.
         return None
 
     def is_equivalent(self, rhs):
