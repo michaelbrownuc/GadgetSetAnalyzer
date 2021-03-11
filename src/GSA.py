@@ -32,6 +32,7 @@ parser.add_argument("--output_addresses", help="Output addresses of sensitive ga
 parser.add_argument("--output_tables", help="Output metric data as tables in LaTeX format. Ignored if --output_metrics is not specified. If specified, provide a row label, such as the program name.", action='store', type=str, default='')
 parser.add_argument("--result_folder_name", help="Optionally specifies a specific output file name for the results folder.", action="store", type=str)
 parser.add_argument("--original_name", help="Optionally specifies a specific name for the 'original' binary.", action="store", type=str, default="Original")
+parser.add_argument("--output_console", help="Output gadget set and comparison data to console.", action="store_true")
 args = parser.parse_args()
 
 variants_dict = eval(args.variants)
@@ -40,7 +41,7 @@ print("Starting Gadget Set Analyzer")
 
 # Create Gadget sets for original
 print("Analyzing original package [" + args.original_name + "] located at: " + args.original)
-original = GadgetSet(args.original_name, args.original, False)
+original = GadgetSet(args.original_name, args.original, False, args.output_console)
 
 if not args.output_metrics:
     # Iterate through variants and compare, output to console.
@@ -48,8 +49,8 @@ if not args.output_metrics:
         filepath = variants_dict.get(key)
         print("Analyzing variant package [" + key + "] located at: " + filepath)
 
-        variant = GadgetSet(key, filepath, args.output_addresses)
-        stat = GadgetStats(original, variant)
+        variant = GadgetSet(key, filepath, args.output_addresses, args.output_console)
+        stat = GadgetStats(original, variant, args.output_console)
 
 # Prepare output lines for files
 else:
@@ -164,8 +165,8 @@ else:
         filepath = variants_dict.get(key)
         print("Analyzing variant package [" + key + "] located at: " + filepath)
 
-        variant = GadgetSet(key, filepath, args.output_addresses)
-        stat = GadgetStats(original, variant)
+        variant = GadgetSet(key, filepath, args.output_addresses, args.output_console)
+        stat = GadgetStats(original, variant, args.output_console)
 
         # Output file 1 variant lines
         stat_counts = variant.name + "," + str(variant.total_unique_gadgets) + " (" + str(stat.totalUniqueCountDiff) + "; " + rate_format.format(stat.totalUniqueCountReduction) + "),"
@@ -274,7 +275,7 @@ else:
 
         # Output File 9 variant lines
         if args.output_tables != '':
-            table_lines[0] = table_lines[0] + " & " + str(variant.total_unique_gadgets) + " (" + rate_format.format(stat.totalUniqueCountReduction) + ")"
+            table_lines[0] = table_lines[0] + " & " + str(variant.total_unique_gadgets) + " (" + rate_format.format(stat.totalUniqueIntroductionRate) + ")"
             table_lines[1] = table_lines[1] + " & " + str(variant.practical_ROP_expressivity) + "/" + str(variant.practical_ASLR_ROP_expressivity) + "/" + str(variant.turing_complete_ROP_expressivity) + " & (" + \
                 str(stat.practical_ROP_exp_diff) + "/" + str(stat.practical_ASLR_ROP_exp_diff) + "/" + str(stat.turing_complete_ROP_exp_diff) + ")"
             table_lines[2] = table_lines[2] +  " & " + str(variant.total_functional_gadgets) + " / " + float_format.format(variant.average_functional_quality) + " & (" + \

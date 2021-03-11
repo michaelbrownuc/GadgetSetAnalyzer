@@ -21,6 +21,7 @@ GSA is an automated tool for gathering security-oriented data on the effects of 
  6. Gadget Locality: The percentage of gadgets in a variant set that are also in present in the original set and also at the same offset.
  7. Functional Gadget Set Quality Change: The change in quality (as measured by ease of use and the absence of side constraints) of the gadget set between the original package and each variant.
  8. Likely Gadget Locations: For each special purpose gadget in each variant binary, the most likely function name in source where the gadget was introduced.
+ 9. Gadget Comparison data in LaTeX table format.
 
 ## Dependencies
 The static analyzer is dependent upon the following third party packages:
@@ -36,12 +37,14 @@ To install GSA:
  3. Clone this repo
 
 ## Running
-GSA has 4 optional inputs:
+GSA has the following optional inputs:
 
  1. Output Metrics (--output_metrics): Indicates that GSA should produce output files 1-7.
  2. Output Addresses (--output_addresses): Indicates that GSA should produce output file 8. Ignored if output_metrics is not set. Takes extra time to use angr.
  3. Result Folder Name (--result_folder_name <name>): Indicates that GSA should place results for the run in results/<name> 
  4. Original Name (--original_name <name>): Indicates that GSA should use a specific <name> in the output for the original binary.
+ 5. Output Console (--output_console): Indicates that GSA should output gadget set and comparison data to the console.
+ 6. Output Tables (--output_tables): Indicates that GSA should produce output file 9. Ignored if output_metrics is not set. 
 
 The analyzer has 2 required inputs:
 
@@ -50,5 +53,5 @@ The analyzer has 2 required inputs:
 
 Example invocation:
 ```
-python GSA.py --output_metrics --output_addresses ./samples/CHISEL/date/date-8.21 "{'Aggressive':'./samples/CHISEL/date/date-8.21.reduced'}"
+python3 GSA.py --output_metrics --output_addresses ./samples/CHISEL/date/date-8.21 "{'Aggressive':'./samples/CHISEL/date/date-8.21.reduced'}"
 ```

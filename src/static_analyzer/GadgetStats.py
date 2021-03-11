@@ -17,11 +17,12 @@ class GadgetStats(object):
     gadget set of its debloated variant.
     """
 
-    def __init__(self, original, variant):
+    def __init__(self, original, variant, output_console):
         """
         GadgetStats constructor
         :param GadgetSet original: Gadget Set from the original package
         :param GadgetSet variant: Gadget Set from the variant package
+        :param boolean output_console: Indicates whether or not to print info when computed
         """
         self.original = original
         self.variant = variant
@@ -248,7 +249,7 @@ class GadgetStats(object):
 
         total_common_set = orig_total_set & variant_total_set       
         total_introduced_set = variant_total_set - total_common_set
-        if (len(variant_total_set) > 0):
+        if len(variant_total_set) > 0:
             self.totalUniqueIntroductionRate = len(total_introduced_set) / len(variant_total_set)
         else:
             self.totalUniqueIntroductionRate = 0
@@ -275,7 +276,8 @@ class GadgetStats(object):
         self.averageCOPQualityDiff = original.averageCOPQuality - variant.averageCOPQuality
         self.total_average_quality_diff = original.average_functional_quality - variant.average_functional_quality
 
-        self.printStats()
+        if output_console:
+            self.printStats()
 
     def printStats(self):
         rate_format = "{:.1%}"
