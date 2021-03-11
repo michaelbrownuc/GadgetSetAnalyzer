@@ -66,6 +66,7 @@ class GadgetSet(object):
         self.averageROPQuality = 0.0
         self.averageJOPQuality = 0.0
         self.averageCOPQuality = 0.0
+        self.average_functional_quality = 0.0
 
         # Run ROPgadget to populate total gadget set (includes duplicates and multi-branch gadgets)
         self.parse_gadgets(GadgetSet.runROPgadget(filepath, "--all --multibr"))
@@ -75,12 +76,43 @@ class GadgetSet(object):
             self.analyze_gadget(gadget)
 
         # Calculate gadget set counts / quality metrics
-        self.total_sp_gadgets = len(self.SyscallGadgets) + len(self.JOPInitializers) + len(self.JOPTrampolines) + \
-            len(self.JOPDispatchers) + len(self.JOPDataLoaders) + len(self.COPDataLoaders) + \
-            len(self.COPDispatchers) + len(self.COPInitializers) + len(self.COPStrongTrampolines) + \
-            len(self.COPIntrastackPivots)
-        self.total_unique_gadgets = self.total_sp_gadgets + len(self.ROPGadgets) + len(self.JOPGadgets) + \
-            len(self.COPGadgets)
+        self.total_sp_gadgets = 0
+        self.total_sp_types = 0
+        if len(self.SyscallGadgets) > 0:
+            self.total_sp_types += 1
+            self.total_sp_gadgets += len(self.SyscallGadgets)
+        if len(self.JOPInitializers) > 0:
+            self.total_sp_types += 1
+            self.total_sp_gadgets += len(self.JOPInitializers)
+        if len(self.JOPTrampolines) > 0:
+            self.total_sp_types += 1
+            self.total_sp_gadgets += len(self.JOPTrampolines)
+        if len(self.JOPDispatchers) > 0:
+            self.total_sp_types += 1
+            self.total_sp_gadgets += len(self.JOPDispatchers)
+        if len(self.JOPDataLoaders) > 0:
+            self.total_sp_types += 1
+            self.total_sp_gadgets += len(self.JOPDataLoaders)
+        if len(self.COPDataLoaders) > 0:
+            self.total_sp_types += 1
+            self.total_sp_gadgets += len(self.COPDataLoaders)
+        if len(self.COPDispatchers) > 0:
+            self.total_sp_types += 1
+            self.total_sp_gadgets += len(self.COPDispatchers)
+        if len(self.COPInitializers) > 0:
+            self.total_sp_types += 1
+            self.total_sp_gadgets += len(self.COPInitializers)
+        if len(self.COPStrongTrampolines) > 0:
+            self.total_sp_types += 1
+            self.total_sp_gadgets += len(self.COPStrongTrampolines)
+        if len(self.COPIntrastackPivots) > 0:
+            self.total_sp_types += 1
+            self.total_sp_gadgets += len(self.COPIntrastackPivots)
+
+        self.total_functional_gadgets = len(self.ROPGadgets) + len(self.JOPGadgets) + len(self.COPGadgets)
+        self.total_unique_gadgets = self.total_sp_gadgets + self.total_functional_gadgets
+
+        self.total_score = self.total_ROP_score + self.total_JOP_score + self.total_COP_score
 
         if self.total_ROP_score != 0.0:
             self.averageROPQuality = self.total_ROP_score / len(self.ROPGadgets)
@@ -88,6 +120,8 @@ class GadgetSet(object):
             self.averageJOPQuality = self.total_JOP_score / len(self.JOPGadgets)
         if self.total_COP_score != 0.0:
             self.averageCOPQuality = self.total_COP_score / len(self.COPGadgets)
+        if self.total_functional_gadgets != 0:
+            self.average_functional_quality = self.total_score / self.total_functional_gadgets
 
         # Scan ROP gadgets to determine set expressivity
         self.practical_ROP = [False for i in range(11)]

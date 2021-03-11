@@ -29,7 +29,7 @@ parser.add_argument("original", help="Original program binary.", type=str)
 parser.add_argument("variants", help="Python dictionary of variant names and relative paths.  Example: '{<variant_name>:<file_path>, ...}' ", type=str)
 parser.add_argument("--output_metrics", help="Output metric data as a CSV file.", action='store_true')
 parser.add_argument("--output_addresses", help="Output addresses of sensitive gadgets as a CSV file. Ignored if --output_metrics is not specified", action='store_true')
-parser.add_argument("--output_tables", help="Output metric data as tables in LaTeX format. <Not Yet Implemented>", action='store_true')
+parser.add_argument("--output_tables", help="Output metric data as tables in LaTeX format. Ignored if --output_metrics is not specified. If specified, provide a row label, such as the program name.", action='store', type=str, default='')
 parser.add_argument("--result_folder_name", help="Optionally specifies a specific output file name for the results folder.", action="store", type=str)
 parser.add_argument("--original_name", help="Optionally specifies a specific name for the 'original' binary.", action="store", type=str, default="Original")
 args = parser.parse_args()
@@ -62,10 +62,10 @@ else:
     except OSError as osErr:
         print("An OS Error occurred during creation of results directory: " + osErr.strerror)
         sys.exit("Results cannot be logged, aborting operation...")
-    print("Metrics will be written to " + directory_name)
+    print("Writing metrics files to " + directory_name)
 
-    print("Writing Metrics to files.")
     rate_format = "{:.1%}"
+    float_format = "{:.2f}"
 
     # Prepare file line arrays
     # Output file 1: Gadget Counts/Reduction, Total and by Category
@@ -148,7 +148,16 @@ else:
     # Output File 8: Suspected function names containing introduced special purpose gadgets.
     file_8_lines = []
     if args.output_addresses:
-        print("Writing function names associated with special purpose gadgets to files.")
+        print("Writing function names associated with special purpose gadgets to disk.")
+
+    # Output File 9: LaTeX formatted table data
+    table_lines = ["" for i in range(4)]
+    if args.output_tables != '':
+        print("Writing LaTeX formatted table data to disk.")
+        table_lines[0] = args.output_tables + " & " + str(original.total_unique_gadgets)
+        table_lines[1] = args.output_tables + " & " + str(original.practical_ROP_expressivity) + "/" + str(original.practical_ASLR_ROP_expressivity) + "/" + str(original.turing_complete_ROP_expressivity)
+        table_lines[2] = args.output_tables + " & " + str(original.total_functional_gadgets) + " / " + float_format.format(original.average_functional_quality)
+        table_lines[3] = args.output_tables + " & " + str(original.total_sp_types)
 
     # Iterate through the variants. Scan them to get a gadget set, compare it to the original, add data to output files
     for key in variants_dict.keys():
@@ -263,47 +272,65 @@ else:
                         file_8_lines.append("Most likely location in source code: " + function + "\r")
             file_8_lines.append("----------------------------------------------------------\r")
 
-        # Write file lines to disk.
-        try:
-            # Output file 1
-            file = open(directory_name + "/GadgetCounts_Reduction.csv", "w")
-            file.writelines(file_1_lines)
+        # Output File 9 variant lines
+        if args.output_tables != '':
+            table_lines[0] = table_lines[0] + " & " + str(variant.total_unique_gadgets) + " (" + rate_format.format(stat.totalUniqueCountReduction) + ")"
+            table_lines[1] = table_lines[1] + " & " + str(variant.practical_ROP_expressivity) + "/" + str(variant.practical_ASLR_ROP_expressivity) + "/" + str(variant.turing_complete_ROP_expressivity) + " & (" + \
+                str(stat.practical_ROP_exp_diff) + "/" + str(stat.practical_ASLR_ROP_exp_diff) + "/" + str(stat.turing_complete_ROP_exp_diff) + ")"
+            table_lines[2] = table_lines[2] +  " & " + str(variant.total_functional_gadgets) + " / " + float_format.format(variant.average_functional_quality) + " & (" + \
+                str(stat.total_functional_count_diff) + " / " + float_format.format(stat.total_average_quality_diff) + ")"
+            table_lines[3] = table_lines[3] + " & " + str(variant.total_sp_types) + " & (" + str(stat.total_sp_type_reduction) + ")"
+
+    # Write file lines to disk.
+    try:
+        # Output file 1
+        file = open(directory_name + "/GadgetCounts_Reduction.csv", "w")
+        file.writelines(file_1_lines)
+        file.close()
+
+        # Output file 2
+        file = open(directory_name + "/Gadget_Introduction_Counts_Rate.csv", "w")
+        file.writelines(file_2_lines)
+        file.close()
+
+        # Output file 3
+        file = open(directory_name + "/SpecialPurpose_GadgetCounts_Reduction.csv", "w")
+        file.writelines(file_3_lines)
+        file.close()
+
+        # Output file 4
+        file = open(directory_name + "/SpecialPurpose_Gadget_Introduction_Counts_Rate.csv", "w")
+        file.writelines(file_4_lines)
+        file.close()
+
+        # Output file 5
+        file = open(directory_name + "/Expressivity_Counts.csv", "w")
+        file.writelines(file_5_lines)
+        file.close()
+
+        # Output file 6
+        file = open(directory_name + "/Gadget Locality.csv", "w")
+        file.writelines(file_6_lines)
+        file.close()
+
+        # Output file 7
+        file = open(directory_name + "/Gadget Quality.csv", "w")
+        file.writelines(file_7_lines)
+        file.close()
+
+        # Output file 8
+        if args.output_addresses:
+            file = open(directory_name + "/Likely_Gadget_Locations.txt", "w")
+            file.writelines(file_8_lines)
             file.close()
 
-            # Output file 2
-            file = open(directory_name + "/Gadget_Introduction_Counts_Rate.csv", "w")
-            file.writelines(file_2_lines)
+        if args.output_tables != '':
+            table_lines[0] = table_lines[0] + " \\\\ \r"
+            table_lines[1] = table_lines[1] + " \\\\ \r"
+            table_lines[2] = table_lines[2] + " \\\\ \r"
+            table_lines[3] = table_lines[3] + " \\\\ \r"
+            file = open(directory_name + "/Table_Formatted.txt", "w")
+            file.writelines(table_lines)
             file.close()
-
-            # Output file 3
-            file = open(directory_name + "/SpecialPurpose_GadgetCounts_Reduction.csv", "w")
-            file.writelines(file_3_lines)
-            file.close()
-
-            # Output file 4
-            file = open(directory_name + "/SpecialPurpose_Gadget_Introduction_Counts_Rate.csv", "w")
-            file.writelines(file_4_lines)
-            file.close()
-
-            # Output file 5
-            file = open(directory_name + "/Expressivity_Counts.csv", "w")
-            file.writelines(file_5_lines)
-            file.close()
-
-            # Output file 6
-            file = open(directory_name + "/Gadget Locality.csv", "w")
-            file.writelines(file_6_lines)
-            file.close()
-
-            # Output file 7
-            file = open(directory_name + "/Gadget Quality.csv", "w")
-            file.writelines(file_7_lines)
-            file.close()
-
-            # Output file 8
-            if args.output_addresses:
-                file = open(directory_name + "/Likely_Gadget_Locations.txt", "w")
-                file.writelines(file_8_lines)
-                file.close()
-        except OSError as osErr:
-            print(osErr)
+    except OSError as osErr:
+        print(osErr)

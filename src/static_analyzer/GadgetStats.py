@@ -253,23 +253,27 @@ class GadgetStats(object):
         else:
             self.totalUniqueIntroductionRate = 0
 
+        self.total_sp_type_reduction = original.total_sp_types - variant.total_sp_types
+
         # Satisfied classes count differences
         self.practical_ROP_exp_diff = original.practical_ROP_expressivity - variant.practical_ROP_expressivity
         self.practical_ASLR_ROP_exp_diff = original.practical_ASLR_ROP_expressivity - variant.practical_ASLR_ROP_expressivity
         self.turing_complete_ROP_exp_diff = original.turing_complete_ROP_expressivity - variant.turing_complete_ROP_expressivity
 
         # Calculate gadget locality
-        localGadgets = GadgetStats.findEqualGadgets(original.allGadgets, variant.allGadgets)
-        self.gadgetLocality = localGadgets / len(variant.allGadgets)
+        local_gadgets = GadgetStats.findEqualGadgets(original.allGadgets, variant.allGadgets)
+        self.gadgetLocality = local_gadgets / len(variant.allGadgets)
 
         # Calculate gadget quality
         self.keptQualityROPCountDiff = len(original.ROPGadgets) - len(variant.ROPGadgets)
         self.keptQualityJOPCountDiff = len(original.JOPGadgets) - len(variant.JOPGadgets)
         self.keptQualityCOPCountDiff = len(original.COPGadgets) - len(variant.COPGadgets)
+        self.total_functional_count_diff = original.total_functional_gadgets - variant.total_functional_gadgets
 
         self.averageROPQualityDiff = original.averageROPQuality - variant.averageROPQuality
         self.averageJOPQualityDiff = original.averageJOPQuality - variant.averageJOPQuality
         self.averageCOPQualityDiff = original.averageCOPQuality - variant.averageCOPQuality
+        self.total_average_quality_diff = original.average_functional_quality - variant.average_functional_quality
 
         self.printStats()
 
