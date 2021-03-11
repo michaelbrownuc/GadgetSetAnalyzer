@@ -240,6 +240,12 @@ class GadgetStats(object):
         else:
             self.totalUniqueCountReduction = 0
 
+        self.total_sp_count_diff = original.total_sp_gadgets - variant.total_sp_gadgets
+        if original.total_sp_gadgets > 0:
+            self.total_sp_reduction = self.total_sp_count_diff / original.total_sp_gadgets
+        else:
+            self.total_sp_reduction = 0
+
         total_common_set = orig_total_set & variant_total_set       
         total_introduced_set = variant_total_set - total_common_set
         if (len(variant_total_set) > 0):

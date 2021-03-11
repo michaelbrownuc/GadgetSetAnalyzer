@@ -29,7 +29,7 @@ parser.add_argument("original", help="Original program binary.", type=str)
 parser.add_argument("variants", help="Python dictionary of variant names and relative paths.  Example: '{<variant_name>:<file_path>, ...}' ", type=str)
 parser.add_argument("--output_metrics", help="Output metric data as a CSV file.", action='store_true')
 parser.add_argument("--output_addresses", help="Output addresses of sensitive gadgets as a CSV file. Ignored if --output_metrics is not specified", action='store_true')
-parser.add_argument("--output_tables", help="Output metric data as tables in LaTeX format.", action='store_true')
+parser.add_argument("--output_tables", help="Output metric data as tables in LaTeX format. <Not Yet Implemented>", action='store_true')
 parser.add_argument("--result_folder_name", help="Optionally specifies a specific output file name for the results folder.", action="store", type=str)
 parser.add_argument("--original_name", help="Optionally specifies a specific name for the 'original' binary.", action="store", type=str, default="Original")
 args = parser.parse_args()
@@ -55,7 +55,10 @@ if not args.output_metrics:
 else:
     # Create a timestamped results folder
     try:
-        directory_name = create_output_directory("results/analyzer_results_")
+        if args.result_folder_name is None:
+            directory_name = create_output_directory("results/analyzer_results_")
+        else:
+            directory_name = create_output_directory("results/" + args.result_folder_name, False)
     except OSError as osErr:
         print("An OS Error occurred during creation of results directory: " + osErr.strerror)
         sys.exit("Results cannot be logged, aborting operation...")
@@ -76,7 +79,7 @@ else:
 
     # Output file 2: Gadget Introduction Rates
     file_2_lines = ["Package Variant,Total Gadgets,Total Introduction Rate,ROP Gadgets,ROP Introduction Rate,JOP Gadgets,JOP Introduction Rate,COP Gadgets,COP Introduction Rate\r"]
-    orig_counts = original.name + "," + str(len(original.total_unique_gadgets)) + ", ,"
+    orig_counts = original.name + "," + str(original.total_unique_gadgets) + ", ,"
     orig_counts = orig_counts + str(len(original.ROPGadgets)) + ", ,"
     orig_counts = orig_counts + str(len(original.JOPGadgets)) + ", ,"
     orig_counts = orig_counts + str(len(original.COPGadgets)) + "\r"
@@ -159,11 +162,12 @@ else:
         stat_counts = variant.name + "," + str(variant.total_unique_gadgets) + " (" + str(stat.totalUniqueCountDiff) + "; " + rate_format.format(stat.totalUniqueCountReduction) + "),"
         stat_counts = stat_counts + str(len(variant.ROPGadgets)) + " (" + str(stat.ROPCountDiff) + "; " + rate_format.format(stat.ROPCountReduction) + "),"
         stat_counts = stat_counts + str(len(variant.JOPGadgets)) + " (" + str(stat.JOPCountDiff) + "; " + rate_format.format(stat.JOPCountReduction) + "),"
-        stat_counts = stat_counts + str(len(variant.COPGadgets)) + " (" + str(stat.COPCountDiff) + "; " + rate_format.format(stat.COPCountReduction) + ")\r"
+        stat_counts = stat_counts + str(len(variant.COPGadgets)) + " (" + str(stat.COPCountDiff) + "; " + rate_format.format(stat.COPCountReduction) + "),"
+        stat_counts = stat_counts + str(variant.total_sp_gadgets) + " (" + str(stat.total_sp_count_diff) + "; " + rate_format.format(stat.total_sp_reduction) + ")\r"
         file_1_lines.append(stat_counts)
 
         # Output file 2 variant lines
-        stat_counts = variant.name + "," + str(len(variant.total_unique_gadgets)) + ","
+        stat_counts = variant.name + "," + str(variant.total_unique_gadgets) + ","
         stat_counts = stat_counts + rate_format.format(stat.totalUniqueIntroductionRate) + ","
         stat_counts = stat_counts + str(len(variant.ROPGadgets)) + ","
         stat_counts = stat_counts + rate_format.format(stat.ROPIntroductionRate) + ","
@@ -222,9 +226,9 @@ else:
         file_4_lines.append(stat_counts)
 
         # Output file 5 variant lines
-        stat_counts = variant.name + "," + str(variant.practical_ROP_expressivity) + " (" + stat.practical_ROP_exp_diff + "),"
-        stat_counts += str(variant.practical_ASLR_ROP_expressivity) + " (" + stat.practical_ASLR_ROP_exp_diff  + "),"
-        stat_counts += str(variant.turing_complete_ROP_expressivity) + " (" + stat.turing_complete_ROP_exp_diff + ")\r"
+        stat_counts = variant.name + "," + str(variant.practical_ROP_expressivity) + " (" + str(stat.practical_ROP_exp_diff) + "),"
+        stat_counts += str(variant.practical_ASLR_ROP_expressivity) + " (" + str(stat.practical_ASLR_ROP_exp_diff)  + "),"
+        stat_counts += str(variant.turing_complete_ROP_expressivity) + " (" + str(stat.turing_complete_ROP_exp_diff) + ")\r"
         file_5_lines.append(stat_counts)
 
         # Output file 6 variant lines
