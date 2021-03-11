@@ -4,35 +4,36 @@ Gadget Set Class
 
 # Standard Library Imports
 import subprocess
-import itertools
-import os
 
 # Third Party Imports
 import angr
 
 # Local Imports
 from static_analyzer.Gadget import Gadget
+from static_analyzer.Instruction import Instruction
 
 
 class GadgetSet(object):
     """
-    The GadgetSet class is initialized from a binary file and contains information derived from static analysis tools.
+    The GadgetSet class is initialized from a binary file and records information about the utility and availability
+    of gadgets present in the binary's encoding.
     """
-
-    galityPath = "/home/michael/gality/bin/"
 
     def __init__(self, name, filepath, createCFG):
         """
         GadgetSet constructor
         :param str name: Name for the gadget set
-        :param str filepath: Filepath of the file on disk to debloat.
+        :param str filepath: Path to the file on disk.
         :param bool createCFG: whether or not to use angr to create a CFG.
         """
+        self.name = name
+        self.cnt_rejected = 0
+        self.cnt_duplicate = 0
 
         # Init the CFG with angr for finding functions
         if createCFG:
             try:
-                proj = angr.Project(filepath, main_opts={'base_addr':0}, load_options={'auto_load_libs': False})
+                proj = angr.Project(filepath, main_opts={'base_addr': 0}, load_options={'auto_load_libs': False})
                 self.cfg = proj.analyses.CFG()
                 self.cfg.normalize()
             except Exception as e:
@@ -40,57 +41,109 @@ class GadgetSet(object):
         else:
             self.cfg = None
 
-        self.name = name
-        self.totalUniqueGadgets = set()
-
-        # Run ROPgadget to populate ROP, JOP, and Syscall gadgets
-        self.ROPGadgets = self.parseGadgets("ROP", self.runROPgadget(filepath, "--nojop --nosys"))
-        self.JOPGadgets = self.parseGadgets("JOP", self.runROPgadget(filepath, "--norop --nosys"))
-        self.SysGadgets = self.parseGadgets("Syscall", self.runROPgadget(filepath, "--norop --nojop"))
-
-	# Run Gality (GT Version) to collect ROP / JOP / COP useful gadget counts and average quality
-        self.keptQualityROPGadgets = 0
-        self.keptQualityJOPGadgets = 0
-        self.keptQualityCOPGadgets = 0
-        self.averageROPQuality = 0.0
-        self.averageJOPQuality = 0.0
-        self.averageCOPQuality = 0.0
-        self.runGality(filepath)
-
-        # Filter JOP gadgets
-        self.filterJOPGadgets()
-
-        # Populate COP gagdets
+        # Initialize functional gadget type lists
+        self.allGadgets = []
+        self.ROPGadgets = []
+        self.JOPGadgets = []
         self.COPGadgets = []
-        self.getCOPGadgets()
 
-        # Search for other special purpose gadgets
+        # Initialize special purpose gadget type lists
+        self.SyscallGadgets = []
         self.JOPDispatchers = []
         self.JOPDataLoaders = []
         self.JOPInitializers = []
         self.JOPTrampolines = []
-        self.populateSpecialJOPGadgets()
-
         self.COPDispatchers = []
         self.COPStrongTrampolines = []
         self.COPIntrastackPivots = []
         self.COPDataLoaders = []
         self.COPInitializers = []
-        self.populateSpecialCOPGadgets()
 
-        # Run microgadget scanner
-        self.simpleTuringCompleteClasses = self.parseClasses(self.runROPgadget(filepath, "--nojop --nosys --microgadgets"))
+        # Initialize total and average quality scores
+        self.total_ROP_score = 0.0
+        self.total_JOP_score = 0.0
+        self.total_COP_score = 0.0
+        self.averageROPQuality = 0.0
+        self.averageJOPQuality = 0.0
+        self.averageCOPQuality = 0.0
 
-    def parseGadgets(self, gadget_type, output):
+        # Run ROPgadget to populate total gadget set (includes duplicates and multi-branch gadgets)
+        self.parse_gadgets(GadgetSet.runROPgadget(filepath, "--all --multibr"))
+
+        # Reject unusable gadgets, sort gadgets into their appropriate category sets, score gadgets
+        for gadget in self.allGadgets:
+            self.analyze_gadget(gadget)
+
+        # Calculate gadget set counts / quality metrics
+        self.total_sp_gadgets = len(self.SyscallGadgets) + len(self.JOPInitializers) + len(self.JOPTrampolines) + \
+            len(self.JOPDispatchers) + len(self.JOPDataLoaders) + len(self.COPDataLoaders) + \
+            len(self.COPDispatchers) + len(self.COPInitializers) + len(self.COPStrongTrampolines) + \
+            len(self.COPIntrastackPivots)
+        self.total_unique_gadgets = self.total_sp_gadgets + len(self.ROPGadgets) + len(self.JOPGadgets) + \
+            len(self.COPGadgets)
+
+        if self.total_ROP_score != 0.0:
+            self.averageROPQuality = self.total_ROP_score / len(self.ROPGadgets)
+        if self.total_JOP_score != 0.0:
+            self.averageJOPQuality = self.total_JOP_score / len(self.JOPGadgets)
+        if self.total_COP_score != 0.0:
+            self.averageCOPQuality = self.total_COP_score / len(self.COPGadgets)
+
+        # Scan ROP gadgets to determine set expressivity
+        self.practical_ROP = [False for i in range(11)]
+        self.practical_ASLR_ROP = [False for i in range(35)]
+        self.turing_complete_ROP = [False for i in range(17)]
+        quality_threshold = 4.0
+
+        for gadget in self.ROPGadgets:
+            if gadget.score <= quality_threshold:
+                self.classify_gadget(gadget)
+
+        # Perform a secondary scan of JOP gadgets that can be used instead of some ROP gadgets
+        for gadget in self.JOPGadgets:
+            self.classify_JOP_gadget(gadget)
+
+        # Calculate satisfaction scores
+        self.practical_ROP_expressivity = sum(self.practical_ROP)
+        self.practical_ASLR_ROP_expressivity = sum(self.practical_ASLR_ROP)
+        self.turing_complete_ROP_expressivity = sum(self.turing_complete_ROP)
+
+        self.print_stats()
+
+    def print_stats(self):
+        print(" Gadget Set Stats for " + self.name)
+        print(" Total number of all gadgets: " + str(len(self.allGadgets)))
+        print(" Number of rejected gadgets: " + str(self.cnt_rejected))
+        print(" Number of duplicate gadgets: " + str(self.cnt_duplicate))
+        print(" Unique ROP gadgets: " + str(len(self.ROPGadgets)))
+        print(" Unique JOP gadgets: " + str(len(self.JOPGadgets)))
+        print(" Unique COP gadgets: " + str(len(self.COPGadgets)))
+        print(" Unique SYS gadgets: " + str(len(self.SyscallGadgets)))
+        print(" Unique JOP dispatcher gadgets: " + str(len(self.JOPDispatchers)))
+        print(" Unique JOP initializer gadgets: " + str(len(self.JOPInitializers)))
+        print(" Unique JOP dataloader gadgets: " + str(len(self.JOPDataLoaders)))
+        print(" Unique JOP trampoline gadgets: " + str(len(self.JOPTrampolines)))
+        print(" Unique COP dispatcher gadgets: " + str(len(self.COPDispatchers)))
+        print(" Unique COP initializer gadgets: " + str(len(self.COPInitializers)))
+        print(" Unique COP dataloader gadgets: " + str(len(self.COPDataLoaders)))
+        print(" Unique COP strong trampoline gadgets: " + str(len(self.COPStrongTrampolines)))
+        print(" Unique COP intrastack pivot gadgets: " + str(len(self.COPIntrastackPivots)))
+        print(" -----")
+        print(" ROP - Total Score: " + str(self.total_ROP_score) + "  Average Score: " + str(self.averageROPQuality))
+        print(" JOP - Total Score: " + str(self.total_JOP_score) + "  Average Score: " + str(self.averageJOPQuality))
+        print(" COP - Total Score: " + str(self.total_COP_score) + "  Average Score: " + str(self.averageCOPQuality))
+        print(" -----")
+        print(" Prac ROP - Expressivity: " + str(self.practical_ROP_expressivity))
+        print(" ASLR-proof Prac ROP - Expressivity: " + str(self.practical_ASLR_ROP_expressivity))
+        print(" Simple Turing Complete - Expressivity: " + str(self.turing_complete_ROP_expressivity))
+
+    def parse_gadgets(self, output):
         """
-        Converts raw ROPGadget output into a list of Gadget objects.
-        :param str output: Plain text output from run of ROPGagdet
-        :param str gadget_type: String representing the type of gadgets in this collection.
+        Converts raw ROPgadget output into a list of Gadget objects.
+        :param str output: Plain text output from run of ROPgadget
         :return: List of Gadget objects
         """
         # Iterate through each line and generate a gadget object
-        gadgets = []
-
         lines = output.split("\n")
         for line in lines:
             # Exclude header/footer information
@@ -99,330 +152,123 @@ class GadgetSet(object):
                     line == "" or \
                     line.startswith("Unique gadgets found"):
                 continue
-            # Split gadgets into constituent parts
             else:
-                offset = line[:line.find(":")]
-                gadget_string = line[line.find(":") + 2:]
-                instructions = gadget_string.split(" ; ")
-                gadgets.append(Gadget(gadget_type, offset, instructions))
-                self.totalUniqueGadgets.add(gadget_string)
+                self.allGadgets.append(Gadget(line))
 
-        return gadgets
-
-    def runROPgadget(self, filepath, flags):
+    @staticmethod
+    def runROPgadget(filepath, flags):
         """
-        Runs ROPGadget on the binary at filepath with flags passed.
+        Runs ROPgadget on the binary at filepath with flags passed.
         :param str filepath: path to binary to analyze
         :param str flags: string containing the flags for execution
         :return: Output from the ROPgadget command as a standard string, None if the data was not collected as expected.
         """
-        bytestr = None
-        try:
-            bytestr = subprocess.check_output("ROPgadget --binary " + filepath + " " + flags, shell=True)
-        except subprocess.CalledProcessError as CPE:
-            print("Error in running ROPgadget with flags:" + flags)
-            print(CPE.output)
 
-        # Convert output to standard string.
-        return bytestr.decode("utf-8")
+        sub = subprocess.Popen("ROPgadget --binary " + filepath + " " + flags, shell=True, stdout=subprocess.PIPE)
+        subprocess_return = sub.stdout.read()
+        return subprocess_return.decode("utf-8")
 
-    def runGality(self, filepath):
+    def analyze_gadget(self, gadget):
         """
-        Runs Gality on the total ROPgadget output for the file specified at the filepath. Also parses the produced file
-        and sets the appropriate member variables.
-        :param filepath: path to binary to analyze
-        :return: None
-        """
-        # Run ROPgadget with all engines enabled, and save file to a temp file in the current directory. Then run gality
-        # on that file, saving a new temp file.
-        rg_output = self.runROPgadget(filepath, "")
-
-        try:
-            file = open("gality_temp_input_file.txt", "w")
-            file.write(rg_output)
-            file.close()
-        except OSError as osErr:
-            print(osErr)
-
-        subprocess.run("java -cp " + self.galityPath +
-                        " gality.Program gality_temp_input_file.txt gality_temp_output_file.txt", shell=True)
-
-        # Open the temp file, read the lines.
-        file_lines = []
-
-        try:
-            file = open("gality_temp_output_file.txt", "r")
-            file_lines = file.readlines()
-            file.close()
-        except OSError as osErr:
-            print(osErr)
-
-        # Delete the temp files.
-        try:
-            os.remove("gality_temp_input_file.txt")
-            os.remove("gality_temp_output_file.txt")
-        except OSError as osErr:
-            print(osErr)
-
-        # Parse the lines into the values we want to keep.
-        for line in file_lines:
-            if line.find("Kept") > -1:
-                if line.find("ROP") > -1:
-                    self.keptQualityROPGadgets = int(line[5:line.find("ROP")-1])
-                elif line.find("JOP") > -1:
-                    self.keptQualityJOPGadgets = int(line[5:line.find("JOP")-1])
-                elif line.find("COP") > -1:
-                    self.keptQualityCOPGadgets = int(line[5:line.find("COP")-1])
-                else:
-                    print("Unexpected line encountered while parsing gality results: " + line)
-
-            if line.find("Average") > -1:
-                if line.find("ROP") > -1:
-                    self.averageROPQuality = float(line[line.find(": ") + 2:])
-                elif line.find("JOP") > -1:
-                    self.averageJOPQuality = float(line[line.find(": ") + 2:])
-                elif line.find("COP") > -1:
-                    self.averageCOPQuality = float(line[line.find(": ") + 2:])
-                else:
-                    print("Unexpected line encountered while parsing gality results: " + line)
-
-
-    def filterJOPGadgets(self):
-        """
-        Corrects for an issue in ROPGadget that includes some return ending gadgets in its output.
-        :return: None, alters the JOPGadgets collection.
-        """
-        gadgetsToRemove = []
-        for jopGadget in self.JOPGadgets:
-            last_instr = jopGadget.instructions[len(jopGadget.instructions)-1]
-            if last_instr.startswith("ret"):
-                print("Filtering Gadget: " + str(jopGadget.instructions))
-                gadgetsToRemove.append(jopGadget)
-
-        for gadget in gadgetsToRemove:
-            self.JOPGadgets.remove(gadget)
-
-    def getCOPGadgets(self):
-        """
-        Reads through the recorded JOP gadgets and populates COP gadgets
-        """
-        for jopGadget in self.JOPGadgets:
-            last_instr = jopGadget.instructions[len(jopGadget.instructions)-1]
-            if last_instr.startswith("call"):
-                self.COPGadgets.append(jopGadget)
-
-    def parseClasses(self, output):
-        """
-        :param str output: Console output from the microgadget scanner
-        :return:
+        Analyzes a gadget to determine its properties
+        :param Gadget gadget: gadget to analyze
+        :return: None, but modifies GadgetSet collections and Gadget object members
         """
 
-        lines = output.split("\n")
-        for line in lines:
-            if line.find("Classes Satisfied") != -1:
-                return line[:line.find(" ")]
+        # Step 1: Eliminate useless gadgets, defined as:
+        # 1) Gadgets that consist only of the GPI (SYSCALL gadgets excluded)
+        # 2) Gadgets that have a first opcode that is not useful - we assume that the first instruction is part of the
+        #    desired operation to be performed (otherwise attacker would just use the shorter version)
+        # 3) Gadgets that end in a call/jmp <offset> (ROPgadget should not include these in the first place)
+        # 4) Gadgets that create values in segment or extension registers, or are RIP-relative
+        # 5) Gadgets ending in returns with offsets that are not byte aligned or greater than 32 bytes
+        # 6) Gadgets containing ring-0 instructions / operands
+        # 7) Gadgets that contain an intermediate GPI/interrupt (ROPgadget should not include these in the first place)
+        # 8) ROP Gadgets that perform non-static assignments to the stack pointer register
+        # 9) JOP/COP Gadgets that overwrite the target of and indirect branch GPI
+        # 10) JOP/COP gadgets that are RIP-relative
+        # 11) Syscall gadgets that end in an interrupt handler that is not 0x80 (ROPgadget should not include these)
+        # 12) Gadgets that create value in the first instruction only to overwrite that value before the GPI
+        # 13) Gadgets that contain intermediate static calls
+        if gadget.is_gpi_only() or gadget.is_useless_op() or gadget.is_invalid_branch() or \
+           gadget.creates_unusable_value() or gadget.has_invalid_ret_offset() or gadget.contains_unusable_op() or \
+           gadget.contains_intermediate_GPI() or gadget.clobbers_stack_pointer() or \
+           gadget.is_rip_relative_indirect_branch() or gadget.clobbers_indirect_target() or \
+           gadget.has_invalid_int_handler() or gadget.clobbers_created_value() or gadget.contains_static_call():
+            self.cnt_rejected += 1
+            return
 
-    def populateSpecialJOPGadgets(self):
-        """
-        Performs search of the JOP gadgets in this set to identify JOP special purpose gadgets
-        :return: void
-        """
-        for gadget in self.JOPGadgets:
-            first_instruction = gadget.instructions[0]
-            last_instruction = gadget.instructions[len(gadget.instructions)-1]
-            # Short circuit elimination of call-terminating gadgets
-            if last_instruction.startswith("call"):
-                continue
+        # Step 2: Sort the gadget by type. Gadget type determined by GPI and secondary check for S.P. gadgets. Scoring
+        #         is only performed for unique functional gadgets.
+        gpi = gadget.instructions[len(gadget.instructions)-1].opcode
 
-            # Check first instructions to identify potential data loader and initializer gadgets. We do not check all
-            # otherwise we over count gadgets because ROPgadget results include all gadget suffixes of each gadget.
-            if first_instruction.find("popa") > -1:
-                # If a popa/popad opcode is found, this instruction can be used as an initializer gadget.
-                # print("Found a JOP Initializer: " + str(gadget.instructions))
-                self.JOPInitializers.append(gadget)
-            elif first_instruction.find("pop ") > -1:
-                # Otherwise, if a pop opcode is found, then the instruction is a data loader or trampoline candidate.
-                pop_target = first_instruction[4:]
-                if pop_target.find("[") == -1:
-                    # Ignore pop instructions targeting memory (pop operand contains a dereference)
-                    if last_instruction.find(pop_target) == -1:
-                        # if pop target isn't in the last gadget, this instruction can be used as a data loader gadget.
-                        # print("Found a JOP Data Loader: " + str(gadget.instructions))
-                        self.JOPDataLoaders.append(gadget)
-                    else:
-                        # if the pop target is in the last gadget, check to see if it dereferenced. If so it is highly
-                        # likely that the instruction can be used as a trampoline (exceptions are complex, non-static
-                        # expressions within the dereference operation.
-                        if last_instruction.find("[") > -1:
-                            # Search the intermediate instructions the pop target.
-                            pt_found = False
-                            for i in range(1, len(gadget.instructions)-1):
-                                if gadget.instructions[i].find(pop_target) > -1:
-                                    # Check for use or redefinition
-                                    op_split = gadget.instructions[i].find(", ")
-                                    if (op_split == -1) or (gadget.instructions[i][:op_split].find(pop_target) > -1):
-                                        # if the first operand (unary or binary) contains the pop_target
-                                        pt_found = True
-                            if pt_found is False:
-                                self.JOPTrampolines.append(gadget)
+        if gpi.startswith("ret"):
+            if self.add_if_unique(gadget, self.ROPGadgets):
+                # Determine score, first checking ROP-specific side constraints
+                gadget.check_sp_target_of_operation()  # increase score if stack pointer family is target of certain ops
+                gadget.check_contains_leave()          # +2 if gadget contains an intermediate "leave" instruction
+                gadget.check_negative_sp_offsets()     # +2 if gadget's cumulative stack pointer offsets are negative
 
-            # Check last instruction for a register dereference, if so is a dispatcher candidate
-            if last_instruction.find("[") > -1:
-                # Generate instruction types to look for
-                base_target_start = last_instruction.find("[")
-                base_target = last_instruction[base_target_start + 2:base_target_start + 4]
-                targets = ["r" + base_target, "e" + base_target]
-                valid_opcodes = ["inc ", "dec ", "add ", "adc ", "sub ", "sbb "]
-                target_operations = []
-                for combo in itertools.product(valid_opcodes, targets):
-                    target_operations.append(combo[0] + combo[1])
-                # Check first instruction to see if it performs the required action
-                for operation in target_operations:
-                    operation_index = first_instruction.find(operation)
-                    if operation_index > -1:
-                        # If the first instruction is a target operation, do two checks
-                        # 1. Check that the operation doesn't use a target in the second operand
-                        used_in_second = False
-                        for target in targets:
-                            if first_instruction[len(operation):].find(target) > -1:
-                                used_in_second = True
-                        if used_in_second:
-                            break
+                # Next check general side-constraints
+                gadget.check_contains_conditional_op()    # increase score if gadget contains conditional operations
+                gadget.check_register_ops()               # increases score for ops on value and bystander register
+                gadget.check_memory_writes()              # increases score for each memory write in the gadget
 
-                        # 2. Check intermediate instructions for redefinition of a target
-                        jt_found = False
-                        for i in range(1, len(gadget.instructions) - 1):
-                            for target in targets:
-                                # Check for use or redefinition
-                                if GadgetSet.definesTarget(gadget.instructions[i], target):
-                                    jt_found = True
-                        if jt_found is False:
-                            self.JOPDispatchers.append(gadget)
-                        break
+                self.total_ROP_score += gadget.score
 
-    def populateSpecialCOPGadgets(self):
-        """
-        Performs search of the COP gadgets in this set to identify COP special purpose gadgets
-        :return: void
-        """
-        for gadget in self.COPGadgets:
-            first_instruction = gadget.instructions[0]
-            last_instruction = gadget.instructions[len(gadget.instructions) - 1]
+        elif gpi.startswith("jmp"):
+            if gadget.is_JOP_COP_dispatcher():
+                self.add_if_unique(gadget, self.JOPDispatchers)
+            elif gadget.is_JOP_COP_dataloader():
+                self.add_if_unique(gadget, self.JOPDataLoaders)
+            elif gadget.is_JOP_initializer():
+                self.add_if_unique(gadget, self.JOPInitializers)
+            elif gadget.is_JOP_trampoline():
+                self.add_if_unique(gadget, self.JOPTrampolines)
+            else:
+                if self.add_if_unique(gadget, self.JOPGadgets):
+                    # Determine score, first checking JOP-specific side constraints
+                    gadget.check_branch_target_of_operation()  # increase score if branch register is target of ops
 
-            # A single gadget can be used for multiple special purposes in COP techniques. We search for these in a
-            # non-mutually exclusive fashion.
+                    # Next check general side-constraints
+                    gadget.check_contains_conditional_op()  # increase score if gadget contains conditional operations
+                    gadget.check_register_ops()  # increases score for ops on value and bystander register
+                    gadget.check_memory_writes()  # increases score for each memory write in the gadget
 
-            # 1. Check for COP Initializer (which is also one type of Strong Trampoline Gadget)
-            if first_instruction.find("popa") > -1:
-                # If a popa/popad opcode is found, this instruction can be used as an initializer gadget.
-                self.COPInitializers.append(gadget)
-                self.COPStrongTrampolines.append(gadget)
+                    self.total_JOP_score += gadget.score
 
-            # 2. Deleted code that found COP Trampolines, these aren't useful gadgets per original paper.
+        elif gpi.startswith("call"):
+            if gadget.is_JOP_COP_dispatcher():
+                self.add_if_unique(gadget, self.COPDispatchers)
+            elif gadget.is_JOP_COP_dataloader():
+                self.add_if_unique(gadget, self.COPDataLoaders)
+            elif gadget.is_COP_initializer():
+                self.add_if_unique(gadget, self.COPInitializers)
+            elif gadget.is_COP_strong_trampoline():
+                self.add_if_unique(gadget, self.COPStrongTrampolines)
+            elif gadget.is_COP_intrastack_pivot():
+                self.add_if_unique(gadget, self.COPIntrastackPivots)
+            else:
+                if self.add_if_unique(gadget, self.COPGadgets):
+                    # Determine score, first checking COP-specific side constraints
+                    gadget.check_branch_target_of_operation()  # increase score if branch register is target of ops
 
-            # 3. Check for COP Strong Trampoline (except for the special case of COP initializers)
-            # Only consider instructions that start with a pop, and end with a dereference
-            if first_instruction.find("pop ") > -1 and last_instruction.find("[") > -1:
-                pop_targets = [first_instruction[4:]]
-                call_target = last_instruction[last_instruction.find("[")+1:last_instruction.find("]")]
-                is_STG = False
-                reject = False
+                    # Next check general side-constraints
+                    gadget.check_contains_conditional_op()  # increase score if gadget contains conditional operations
+                    gadget.check_register_ops()  # increases score for ops on value and bystander register
+                    gadget.check_memory_writes()  # increases score for each memory write in the gadget
 
-                # iterate through instructions to collect more info
-                for i in range(1, len(gadget.instructions)-1):
-                    current = gadget.instructions[i]
+                    self.total_COP_score += gadget.score
+        else:
+            self.add_if_unique(gadget, self.SyscallGadgets)
 
-                    # Reject Case: We encounter an instruction that redefines the call target
-                    if GadgetSet.definesTarget(current, call_target):
-                        reject = True
-                        break
-
-                    # Accept Case: We encounter a popa(d) instruction.
-                    if current.find("popa") > -1:
-                        if call_target not in pop_targets:
-                            isSTG = True
-                            # Can't break out of loop, need to check remaining instructions for the reject case
-
-                    # Record Case: we encounter another pop instruction, in which case we need to record data
-                    if current.find("pop ") > -1:
-                        pop_targets.append(current[4:])
-
-                # Check to see if this gadget is a string of pops that makes an STG
-                if (reject is not True) and (is_STG is False) and (len(pop_targets) > 1):
-                    if call_target == pop_targets[len(pop_targets)-1]:
-                        # Last pop must be the call target
-                        is_STG = True
-
-                if is_STG and (reject is not True):
-                    self.COPStrongTrampolines.append(gadget)
-
-            # 4. Check for COP Data Loaders. A COP Loader's first instruction is popad, call target is not \
-            #    ebx/ecx/edx/edi, and intermediate instructions do not define ebx/ecx/edx.
-            if first_instruction.find("popad") > -1:
-                call_target = last_instruction[last_instruction.find("[") + 1:last_instruction.find("]")]
-                reject = False
-                # Check call target
-                for target in ["ebx", "ecx", "edx", "edi"]:
-                    if call_target.find(target) > -1:
-                        reject = True
-                        break
-
-                if reject is not True:
-                    # Check intermediate instructions
-                    for i in range(1, len(gadget.instructions)-1):
-                        for target in ["ebx", "ecx", "edx"]:
-                            if GadgetSet.definesTarget(gadget.instructions[i], target):
-                                reject = True
-                                break
-                        if reject:
-                            break
-
-                if reject is not True:
-                    self.COPDataLoaders.append(gadget)
-
-            # 5. Check for COP Intra-stack Pivots
-            if first_instruction.find("inc esp") > -1 or first_instruction.find("add esp") > -1 or \
-                    first_instruction.find("adc esp") > -1 or first_instruction.find("sbb esp") > -1 or \
-                    first_instruction.find("sub esp") > -1:
-                # If we find an appropriate operation, need to make the second operand isn't a pointer (if it exists)
-                op_split = first_instruction.find(", ")
-                if op_split == -1 or first_instruction[op_split:].find("[") == -1:
-                    self.COPIntrastackPivots.append(gadget)
-
-            # 6. Check for COP Dispatchers
-            # Check last instruction for a register dereference, if so is a dispatcher candidate
-            if last_instruction.find("[") > -1:
-                # Generate instruction types to look for
-                base_target_start = last_instruction.find("[")
-                base_target = last_instruction[base_target_start + 2:base_target_start + 4]
-                targets = ["r" + base_target, "e" + base_target]
-                valid_opcodes = ["inc ", "dec ", "add ", "adc ", "sub ", "sbb "]
-                target_operations = []
-                for combo in itertools.product(valid_opcodes, targets):
-                    target_operations.append(combo[0] + combo[1])
-                # Check first instruction to see if it performs the required action
-                for operation in target_operations:
-                    operation_index = first_instruction.find(operation)
-                    if operation_index > -1:
-                        # If the first instruction is a target operation, do two checks
-                        # 1. Check that the operation doesn't use a target in the second operand
-                        used_in_second = False
-                        for target in targets:
-                            if first_instruction[len(operation):].find(target) > -1:
-                                used_in_second = True
-                        if used_in_second:
-                            break
-
-                        # 2. Check intermediate instructions for redefinition of a target
-                        jt_found = False
-                        for i in range(1, len(gadget.instructions) - 1):
-                            for target in targets:
-                                # Check for use or redefinition
-                                if GadgetSet.definesTarget(gadget.instructions[i], target):
-                                    jt_found = True
-                        if jt_found is False:
-                            self.COPDispatchers.append(gadget)
-                        break
+    def add_if_unique(self, gadget, collection):
+        for rhs in collection:
+            if gadget.is_duplicate(rhs):
+                self.cnt_duplicate += 1
+                return False
+        collection.append(gadget)
+        return True
 
     def getFunction(self, rop_addr):
         rop_addr = int(rop_addr, 16)
@@ -436,78 +282,451 @@ class GadgetSet(object):
         else:
             return None
 
-    @staticmethod
-    def definesTarget(instruction, target):
+    def classify_gadget(self, gadget):
         """
-        Static method for determining if an instruction modifies the target.  The purpose of this function is to
-        handle the
-        :param str instruction: String representation of the instruction in question.
-        :param str target: String representation of the target register.
-        :return boolean: True if the instruction defines the target, False if it does not.
+        Analyzes a gadget to determine which expressivity classes it satisfies
+        :param Gadget gadget: gadget to analyze
+        :return: None, but modifies Gadget expressivity collections
         """
-        first_space = instruction.find(" ")
+        first_instr = gadget.instructions[0]
+        opcode = first_instr.opcode
+        op1 = first_instr.op1
+        op2 = first_instr.op2
+        op1_family = Instruction.get_word_operand_register_family(op1)
+        op2_family = Instruction.get_word_operand_register_family(op2)
 
-        # Check if there is no space, this indicates an instruction with no parameters.
-        if first_space == -1:
-            if instruction.find("popa") > -1 and target in ["edi", "esi", "ebp", "ebx", "edx", "ecx", "eax"]:
-                return True
-        # Otherwise, the instruction has operands
-        else:
-            op_split = instruction.find(", ")
-            opcode = instruction[:first_space]
-            find_index = instruction.find(target)
-            # Easier to list what doesn't assign, only common x86 opcodes listed
-            non_assignment_opcodes = ["push", "cmp"]
+        # For performance, iterate through the expressivity classes and perform analysis. Analysis rules should
+        # set as many classes as possible.
+        if self.practical_ROP[0] is False:
+            if opcode == "dec" and op1_family in [0, 5] and "[" not in op1:
+                self.practical_ROP[0] = True
 
-            # If the target is in the instruction and the opcode performs assignment
-            if (find_index > -1) and (opcode not in non_assignment_opcodes):
-                # If the instruction is unary or the target is in the first operand, then it defines the target.
-                if (op_split == -1) or (find_index < op_split):
-                    return True
+                # Also satisfies:
+                self.turing_complete_ROP[0] = True
+                self.practical_ASLR_ROP[9] = True
 
-        # Default value is to return False
-        return False
+        if self.practical_ROP[1] is False:
+            if opcode == "inc" and op1_family in [0, 5] and "[" not in op1:
+                self.practical_ROP[1] = True
 
-    @staticmethod
-    def getGadgetTypeSet(gadgetList):
+                # Also satisfies:
+                self.turing_complete_ROP[0] = True
+                self.practical_ASLR_ROP[8] = True
+
+        if self.practical_ROP[2] is False:
+            if opcode == "pop" and op1_family in [0, 5] and "[" not in op1:
+                self.practical_ROP[2] = True
+
+                # Also satisfies:
+                self.turing_complete_ROP[1] = True
+                self.practical_ASLR_ROP[5] = True
+
+        if self.practical_ROP[3] is False:
+            if (opcode == "pop" and op1_family == 4 and "[" not in op1) or \
+               (opcode in ["xchg", "move"] and op1_family == 4 and op2_family in [0, 5]
+                                                               and "[" not in op1 and "[" not in op2) or \
+               (opcode == "lea" and op1_family == 4 and op2_family in [0, 5]
+                                                    and "+" not in op2 and "-" not in op2 and "*" not in op2) or \
+               (opcode == "xchg" and op1_family in [0, 5] and op2_family == 4 and "[" not in op1 and "[" not in op2):
+                self.practical_ROP[3] = True
+
+        if self.practical_ROP[4] is False:
+            if opcode == "xchg" and ((op1_family == 0 and op2_family == 5) or (op2_family == 0 and op1_family == 5)) \
+               and "[" not in op1 and "[" not in op2:
+                self.practical_ROP[4] = True
+
+        if self.practical_ROP[5] is False:
+            if opcode == "push" and op1_family in [0, 4, 5] and "[" not in op1:
+                self.practical_ROP[5] = True
+
+        if self.practical_ROP[6] is False:
+            if opcode in ["clc", "sahf"] or \
+               (opcode in ["test", "add", "adc", "sub", "sbb", "and", "or", "xor", "cmp"] and
+               op1_family in [0, 4, 5] and op2_family in [0, 4, 5] and "[" not in op1 and "[" not in op2):
+                self.practical_ROP[6] = True
+
+                # Also satisfies:
+                self.turing_complete_ROP[7] = True
+                self.practical_ASLR_ROP[4] = True
+
+        if self.practical_ROP[7] is False:
+            if (opcode.startswith("stos") or opcode in ["mov", "add", "or"]) and "[" in op1 and "+" not in op1 and \
+               "-" not in op1 and "*" not in op1 and op1_family in [0, 4, 5] and op2_family in [0, 4, 5] and \
+               op1_family != op2_family:
+                self.practical_ROP[7] = True
+
+                # Also satisfies:
+                self.turing_complete_ROP[6] = True
+                self.practical_ASLR_ROP[2] = True
+
+        if self.practical_ROP[8] is False:
+            if (opcode.startswith("lods") or opcode in ["mov", "add", "adc", "sub", "sbb", "and", "or", "xor"]) and \
+               "[" in op2 and "+" not in op2 and "-" not in op2 and "*" not in op2 and op1_family in [0, 4, 5] and \
+               op2_family in [0, 4, 5] and op1_family != op2_family:
+                self.practical_ROP[8] = True
+
+                # Also satisfies:
+                self.turing_complete_ROP[5] = True
+                self.practical_ASLR_ROP[1] = True
+
+        # NOTE: Single rule for two classes
+        if self.practical_ROP[9] is False or self.practical_ASLR_ROP[7] is False:
+            if opcode == "leave":
+                self.practical_ROP[9] = True
+                self.practical_ASLR_ROP[7] = True
+
+        if self.practical_ROP[10] is False:
+            if (opcode == "pop" and op1_family == 6 and "[" not in op1) or \
+               (opcode == "xchg" and op1_family is not None and op2_family is not None and op1_family != op2_family
+                                 and (op1_family == 6 or op2_family == 6) and "[" not in op1 and "[" not in op2) or \
+               (opcode in ["add", "adc", "sub", "sbb"] and "[" not in op1 and op1_family == 6 and
+               op2_family not in [None, 6] and "+" not in op2 and "-" not in op2 and "*" not in op2):
+                self.practical_ROP[10] = True
+
+        if self.turing_complete_ROP[0] is False:
+            if opcode in ["inc", "dec"] and op1_family not in [None, 7] and "+" not in op1 and "-" not in op1 and \
+               "*" not in op1:
+                self.turing_complete_ROP[0] = True
+
+        if self.turing_complete_ROP[1] is False:
+            if opcode == "pop" and op1_family not in [None, 7] and "[" not in op1:
+                self.turing_complete_ROP[1] = True
+
+        if self.turing_complete_ROP[2] is False:
+            if opcode in ["add", "adc", "sub", "sbb"] and op1_family not in [None, 7] and "+" not in op1 and \
+                    "-" not in op1 and "*" not in op1 and op2_family not in [None, 7] and "+" not in op2 and \
+                    "-" not in op2 and "*" not in op2 and op1_family != op2_family:
+                self.turing_complete_ROP[2] = True
+
+        if self.turing_complete_ROP[3] is False:
+            if (opcode == "xor" and op1_family not in [None, 7] and "+" not in op1 and "-" not in op1 and "*" not in op1
+               and op2_family not in [None, 7] and "+" not in op2 and "-" not in op2 and "*" not in op2
+               and op1_family != op2_family) or \
+               (opcode in ["neg", "not"] and op1_family not in [None, 7] and "+" not in op1 and "-" not in op1
+               and "*" not in op1):
+                self.turing_complete_ROP[3] = True
+
+        if self.turing_complete_ROP[4] is False:
+            if opcode in ["and", "or"] and op1_family not in [None, 7] and "+" not in op1 and \
+                    "-" not in op1 and "*" not in op1 and op2_family not in [None, 7] and "+" not in op2 and \
+                    "-" not in op2 and "*" not in op2 and op1_family != op2_family:
+                self.turing_complete_ROP[4] = True
+
+        if self.turing_complete_ROP[5] is False:
+            if (opcode.startswith("lods") or opcode in ["mov", "add", "adc", "sub", "sbb", "and", "or", "xor"]) and \
+               "[" in op2 and "+" not in op2 and "-" not in op2 and "*" not in op2 and \
+               op1_family not in [None, 7] and op2_family not in [None, 7] and op1_family != op2_family:
+                self.turing_complete_ROP[5] = True
+
+        if self.turing_complete_ROP[6] is False:
+            if (opcode.startswith("stos") or opcode in ["mov", "add", "or"]) and "[" in op1 and "+" not in op1 and \
+               "-" not in op1 and "*" not in op1 and op1_family not in [None, 7] and op2_family not in [None, 7] and \
+               op1_family != op2_family:
+                self.turing_complete_ROP[6] = True
+
+        if self.turing_complete_ROP[7] is False:
+            if opcode in ["clc", "sahf"] or \
+               (opcode in ["test", "add", "adc", "sub", "sbb", "and", "or", "xor", "cmp"] and
+               op1_family not in [None, 7] and op2_family not in [None, 7] and "+" not in op1 and "-" not in op1 and
+               "*" not in op1 and "+" not in op2 and "-" not in op2 and "*" not in op2 and op1_family != op2_family):
+                self.turing_complete_ROP[7] = True
+
+        if self.turing_complete_ROP[8] is False:
+            if opcode in ["add", "adc", "sub", "sbb"] and "[" not in op2 and op2_family == 7 and \
+               op1_family not in [None, 7] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.turing_complete_ROP[8] = True
+
+        if self.turing_complete_ROP[9] is False:
+            if (opcode == "pop" and op1_family == 7 and "[" not in op1) or \
+               (opcode == "xchg" and op1_family is not None and op2_family is not None and op1_family != op2_family
+                                 and (op1_family == 7 or op2_family == 7) and "[" not in op1 and "[" not in op2) or \
+               (opcode in ["add", "adc", "sub", "sbb"] and "[" not in op1 and op1_family == 7 and
+               op2_family not in [None, 7] and "+" not in op2 and "-" not in op2 and "*" not in op2):
+                self.turing_complete_ROP[9] = True
+
+        if self.turing_complete_ROP[10] is False:
+            if opcode in ["lahf", "pushf"] or \
+               (opcode in ["adc", "sbb"] and op1_family not in [None, 7] and op2_family not in [None, 7] and
+               "+" not in op1 and "-" not in op1 and "*" not in op1 and
+               "+" not in op2 and "-" not in op2 and "*" not in op2 and op1_family != op2_family):
+                self.turing_complete_ROP[10] = True
+
+        # Next 6 classes have common and very specific requirements, check once
+        if opcode == "xchg" and "[" not in op1 and "[" not in op2 and op1_family != op2_family:
+            if self.turing_complete_ROP[11] is False:
+                if op1_family in [0, 1] and op2_family in [0, 1]:
+                    self.turing_complete_ROP[11] = True
+
+            if self.turing_complete_ROP[12] is False:
+                if op1_family in [0, 2] and op2_family in [0, 2]:
+                    self.turing_complete_ROP[12] = True
+
+            if self.turing_complete_ROP[13] is False:
+                if op1_family in [0, 3] and op2_family in [0, 3]:
+                    self.turing_complete_ROP[13] = True
+
+            if self.turing_complete_ROP[14] is False:
+                if op1_family in [0, 6] and op2_family in [0, 6]:
+                    self.turing_complete_ROP[14] = True
+
+            if self.turing_complete_ROP[15] is False:
+                if op1_family in [0, 4] and op2_family in [0, 4]:
+                    self.turing_complete_ROP[15] = True
+
+            if self.turing_complete_ROP[16] is False:
+                if op1_family in [0, 5] and op2_family in [0, 5]:
+                    self.turing_complete_ROP[16] = True
+
+        if self.practical_ASLR_ROP[0] is False:
+            if opcode == "push" and op1_family not in [None, 6, 7] and "[" not in op1:
+                self.practical_ASLR_ROP[0] = True
+
+        if self.practical_ASLR_ROP[1] is False:
+            if (opcode.startswith("lods") or opcode in ["mov", "add", "adc", "sub", "sbb", "and", "or", "xor"]) and \
+               "[" in op2 and "+" not in op2 and "-" not in op2 and "*" not in op2 and \
+               op1_family not in [None, 7] and op2_family not in [None, 6, 7] and op1_family != op2_family:
+                self.practical_ASLR_ROP[1] = True
+
+        if self.practical_ASLR_ROP[2] is False:
+            if (opcode.startswith("stos") or opcode == "mov") and "[" in op1 and "+" not in op1 and \
+               "-" not in op1 and "*" not in op1 and op1_family not in [None, 7] and op2_family not in [None, 7] and \
+               op1_family != op2_family:
+                self.practical_ASLR_ROP[2] = True
+
+        if self.practical_ASLR_ROP[3] is False:
+            if opcode in ["mov", "add", "adc", "and", "or", "xor"] and "[" not in op1 and "[" not in op2 and \
+               op1_family not in [None, 7] and op2_family == 7:
+                self.practical_ASLR_ROP[3] = True
+
+        if self.practical_ASLR_ROP[4] is False:
+            if opcode in ["clc", "sahf"] or \
+               (opcode in ["test", "add", "adc", "sub", "sbb", "and", "or", "xor", "cmp"] and
+               op1_family not in [None, 7] and op2_family not in [None, 7] and "[" not in op1 and "[" not in op2):
+                self.practical_ASLR_ROP[4] = True
+
+        if self.practical_ASLR_ROP[5] is False:
+            if opcode == "pop" and op1_family in [0, 4, 5] and "[" not in op1:
+                self.practical_ASLR_ROP[5] = True
+
+        if self.practical_ASLR_ROP[6] is False:
+            if opcode == "pop" and op1_family in [1, 2, 3, 6] and "[" not in op1:
+                self.practical_ASLR_ROP[6] = True
+
+        # NOTE class 8 (index 7) is combined above
+
+        if self.practical_ASLR_ROP[8] is False:
+            if opcode == "inc" and op1_family not in [None, 7] and "[" not in op1:
+                self.practical_ASLR_ROP[8] = True
+
+        if self.practical_ASLR_ROP[9] is False:
+            if opcode == "dec" and op1_family not in [None, 7] and "[" not in op1:
+                self.practical_ASLR_ROP[9] = True
+
+        if self.practical_ASLR_ROP[10] is False:
+            if opcode in ["add", "adc", "sub", "sbb"] and op1_family not in [None, 7] and "[" not in op1 and \
+               op2_family not in [None, 7] and "[" not in op2 and op1_family != op2_family:
+                self.practical_ASLR_ROP[10] = True
+
+        # For the next 24 classes, some fairly common gadgets will satisfy many classes and significant
+        # overlap in definitions exists. Check these without first seeing if the class is satisfied
+        # POP AX
+        if opcode == "pop" and "[" not in op1 and op1_family == 0:
+            self.practical_ASLR_ROP[13] = True
+            self.practical_ASLR_ROP[17] = True
+            self.practical_ASLR_ROP[21] = True
+            self.practical_ASLR_ROP[25] = True
+            self.practical_ASLR_ROP[29] = True
+            self.practical_ASLR_ROP[33] = True
+
+        # XCHG AX with another GPR
+        if opcode == "xchg" and "[" not in op1 and "[" not in op2:
+            if op1_family == 0:
+                if op2_family == 1:
+                    self.practical_ASLR_ROP[11] = True
+                    self.practical_ASLR_ROP[12] = True
+                    self.practical_ASLR_ROP[13] = True
+                    self.practical_ASLR_ROP[14] = True
+                elif op2_family == 2:
+                    self.practical_ASLR_ROP[15] = True
+                    self.practical_ASLR_ROP[16] = True
+                    self.practical_ASLR_ROP[17] = True
+                    self.practical_ASLR_ROP[18] = True
+                elif op2_family == 3:
+                    self.practical_ASLR_ROP[19] = True
+                    self.practical_ASLR_ROP[20] = True
+                    self.practical_ASLR_ROP[21] = True
+                    self.practical_ASLR_ROP[22] = True
+                elif op2_family == 6:
+                    self.practical_ASLR_ROP[23] = True
+                    self.practical_ASLR_ROP[24] = True
+                    self.practical_ASLR_ROP[25] = True
+                    self.practical_ASLR_ROP[26] = True
+                elif op2_family == 4:
+                    self.practical_ASLR_ROP[27] = True
+                    self.practical_ASLR_ROP[28] = True
+                    self.practical_ASLR_ROP[29] = True
+                    self.practical_ASLR_ROP[30] = True
+                elif op2_family == 5:
+                    self.practical_ASLR_ROP[31] = True
+                    self.practical_ASLR_ROP[32] = True
+                    self.practical_ASLR_ROP[33] = True
+                    self.practical_ASLR_ROP[34] = True
+
+            elif op2_family == 0:
+                if op1_family == 1:
+                    self.practical_ASLR_ROP[11] = True
+                    self.practical_ASLR_ROP[12] = True
+                    self.practical_ASLR_ROP[13] = True
+                    self.practical_ASLR_ROP[14] = True
+                elif op1_family == 2:
+                    self.practical_ASLR_ROP[15] = True
+                    self.practical_ASLR_ROP[16] = True
+                    self.practical_ASLR_ROP[17] = True
+                    self.practical_ASLR_ROP[18] = True
+                elif op1_family == 3:
+                    self.practical_ASLR_ROP[19] = True
+                    self.practical_ASLR_ROP[20] = True
+                    self.practical_ASLR_ROP[21] = True
+                    self.practical_ASLR_ROP[22] = True
+                elif op1_family == 6:
+                    self.practical_ASLR_ROP[23] = True
+                    self.practical_ASLR_ROP[24] = True
+                    self.practical_ASLR_ROP[25] = True
+                    self.practical_ASLR_ROP[26] = True
+                elif op1_family == 4:
+                    self.practical_ASLR_ROP[27] = True
+                    self.practical_ASLR_ROP[28] = True
+                    self.practical_ASLR_ROP[29] = True
+                    self.practical_ASLR_ROP[30] = True
+                elif op1_family == 5:
+                    self.practical_ASLR_ROP[31] = True
+                    self.practical_ASLR_ROP[32] = True
+                    self.practical_ASLR_ROP[33] = True
+                    self.practical_ASLR_ROP[34] = True
+
+        # MOV between AX and another GPR
+        if opcode == "mov" and "[" not in op1 and "[" not in op2:
+            if op1_family == 0:
+                if op2_family == 1:
+                    self.practical_ASLR_ROP[13] = True
+                    self.practical_ASLR_ROP[14] = True
+                elif op2_family == 2:
+                    self.practical_ASLR_ROP[17] = True
+                    self.practical_ASLR_ROP[18] = True
+                elif op2_family == 3:
+                    self.practical_ASLR_ROP[21] = True
+                    self.practical_ASLR_ROP[22] = True
+                elif op2_family == 6:
+                    self.practical_ASLR_ROP[25] = True
+                    self.practical_ASLR_ROP[26] = True
+                elif op2_family == 4:
+                    self.practical_ASLR_ROP[29] = True
+                    self.practical_ASLR_ROP[30] = True
+                elif op2_family == 5:
+                    self.practical_ASLR_ROP[33] = True
+                    self.practical_ASLR_ROP[34] = True
+
+            elif op2_family == 0:
+                if op1_family == 1:
+                    self.practical_ASLR_ROP[11] = True
+                    self.practical_ASLR_ROP[12] = True
+                elif op1_family == 2:
+                    self.practical_ASLR_ROP[15] = True
+                    self.practical_ASLR_ROP[16] = True
+                elif op1_family == 3:
+                    self.practical_ASLR_ROP[19] = True
+                    self.practical_ASLR_ROP[20] = True
+                elif op1_family == 6:
+                    self.practical_ASLR_ROP[23] = True
+                    self.practical_ASLR_ROP[24] = True
+                elif op1_family == 4:
+                    self.practical_ASLR_ROP[27] = True
+                    self.practical_ASLR_ROP[28] = True
+                elif op1_family == 5:
+                    self.practical_ASLR_ROP[31] = True
+                    self.practical_ASLR_ROP[32] = True
+
+        # ["add", "adc", "sub", "sbb", "and", "or", "xor"] between AX and another GPR
+        if opcode in ["add", "adc", "sub", "sbb", "and", "or", "xor"] and "[" not in op1 and "[" not in op2:
+            if op1_family == 0:
+                if op2_family == 1:
+                    self.practical_ASLR_ROP[14] = True
+                elif op2_family == 2:
+                    self.practical_ASLR_ROP[18] = True
+                elif op2_family == 3:
+                    self.practical_ASLR_ROP[22] = True
+                elif op2_family == 6:
+                    self.practical_ASLR_ROP[26] = True
+                elif op2_family == 4:
+                    self.practical_ASLR_ROP[30] = True
+                elif op2_family == 5:
+                    self.practical_ASLR_ROP[34] = True
+
+            elif op2_family == 0:
+                if op1_family == 1:
+                    self.practical_ASLR_ROP[12] = True
+                elif op1_family == 2:
+                    self.practical_ASLR_ROP[16] = True
+                elif op1_family == 3:
+                    self.practical_ASLR_ROP[20] = True
+                elif op1_family == 6:
+                    self.practical_ASLR_ROP[24] = True
+                elif op1_family == 4:
+                    self.practical_ASLR_ROP[28] = True
+                elif op1_family == 5:
+                    self.practical_ASLR_ROP[32] = True
+
+        # Resume checks for individual classes 11, 15, 19, 23, 27, and 31. Others entirely checked entirely above
+        if self.practical_ASLR_ROP[11] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 1:
+                self.practical_ASLR_ROP[11] = True
+
+        if self.practical_ASLR_ROP[15] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 2:
+                self.practical_ASLR_ROP[15] = True
+
+        if self.practical_ASLR_ROP[19] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 3:
+                self.practical_ASLR_ROP[19] = True
+
+        if self.practical_ASLR_ROP[23] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 6:
+                self.practical_ASLR_ROP[23] = True
+
+        if self.practical_ASLR_ROP[27] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 4:
+                self.practical_ASLR_ROP[27] = True
+
+        if self.practical_ASLR_ROP[31] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 5:
+                self.practical_ASLR_ROP[31] = True
+
+    def classify_JOP_gadget(self, gadget):
         """
-        Static method for generating a set of gadget strings suitable for performing set operations.
-        :param Gadget[] gadgetList: A list of Gadget objects
-        :return: A set of gadget strings suitable for performing set arithmetic
+        Analyzes a gadget to determine which expressivity classes it satisfies
+        :param Gadget gadget: gadget to analyze
+        :return: None, but modifies Gadget expressivity collections
         """
-        gadgetTypeSet = set()
-        sep = "; "
+        last_instr = gadget.instructions[len(gadget.instructions)-1]
+        op1 = last_instr.op1
+        op1_family = Instruction.get_word_operand_register_family(op1)
 
-        for gadget in gadgetList:
-            gadgetTypeSet.add(sep.join(gadget.instructions))
+        if self.practical_ROP[3] is False:
+            if "[" in op1 and op1_family in [0, 5] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ROP[3] = True
 
-        return gadgetTypeSet
+        if self.practical_ROP[5] is False:
+            if op1_family in [0, 5] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ROP[5] = True
 
-    def getGadgetsFromStrings(self, gadgetStringSet, category):
-        """
-        Static method for finding a set of Gadget objects from instruction strings.  Used to invert conversion to set
-        operable string above.
-        :param str[] gadgetStringSet: A set of gadgets represented as strings (as created by getGadgetTypeSet
-        :param str category: A general category for searching for the gadget objects.  Must be SYS, JOP, or COP.
-        :return: A list of Gadget Objects corresponding to the input strings.
-        """
-        gadgetObjects = []
-        objectList = None
-        if category == "SYS":
-            objectList = self.SysGadgets
-        elif category == "JOP":
-            objectList = self.JOPGadgets
-        elif category == "COP":
-            objectList = self.COPGadgets
+        if self.practical_ROP[7] is False:
+            if "[" in op1 and op1_family in [0, 4, 5] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ROP[7] = True
 
-        if objectList is None:
-            print("Invalid Category selected for gadget search.")
-            return []
+        if self.practical_ASLR_ROP[0] is False:
+            if "[" not in op1 and op1_family not in [None, 6, 7]:
+                self.practical_ASLR_ROP[0] = True
 
-        for gadgetString in gadgetStringSet:
-            gadgetInstrs = gadgetString.split("; ")
-            for object in objectList:
-                if gadgetInstrs == object.instructions:
-                    gadgetObjects.append(object)
-
-        return gadgetObjects
+        if self.practical_ASLR_ROP[1] is False:
+            if "[" in op1 and op1_family not in [None, 6, 7] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ASLR_ROP[1] = True

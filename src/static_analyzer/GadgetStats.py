@@ -28,12 +28,6 @@ class GadgetStats(object):
         self.name = original.name + " <-> " + variant.name
 
         # Gadget Count Differences and Reduction Percentages
-        self.totalUniqueCountDiff = len(original.totalUniqueGadgets) - len(variant.totalUniqueGadgets)
-        if len(original.totalUniqueGadgets) > 0:
-            self.totalUniqueCountReduction = self.totalUniqueCountDiff / len(original.totalUniqueGadgets)
-        else:
-            self.totalUniqueCountReduction = 0
-
         self.ROPCountDiff = len(original.ROPGadgets) - len(variant.ROPGadgets)
         if len(original.ROPGadgets) > 0:
             self.ROPCountReduction = self.ROPCountDiff / len(original.ROPGadgets)
@@ -52,9 +46,9 @@ class GadgetStats(object):
         else:
             self.COPCountReduction = 0
 
-        self.SysCountDiff = len(original.SysGadgets) - len(variant.SysGadgets)
-        if len(original.SysGadgets) > 0:
-            self.SysCountReduction = self.SysCountDiff / len(original.SysGadgets)
+        self.SysCountDiff = len(original.SyscallGadgets) - len(variant.SyscallGadgets)
+        if len(original.SyscallGadgets) > 0:
+            self.SysCountReduction = self.SysCountDiff / len(original.SyscallGadgets)
         else:
             self.SysCountReduction = 0
 
@@ -112,159 +106,172 @@ class GadgetStats(object):
         else:
             self.COPIntrastackPivotsCountReduction = 0
 
-        # Gadget Introduction Counts and Percentages
-        commonSet = original.totalUniqueGadgets & variant.totalUniqueGadgets
-        self.totalUniqueIntroducedSet = variant.totalUniqueGadgets - commonSet
-        self.totalUniqueIntroductionRate = len(self.totalUniqueIntroducedSet) / len(variant.totalUniqueGadgets)
-
-        originalROPSet = GadgetSet.getGadgetTypeSet(original.ROPGadgets)
-        variantROPSet = GadgetSet.getGadgetTypeSet(variant.ROPGadgets)
+        # Gadget Introduction Counts and Percentages by type
+        originalROPSet = GadgetStats.get_gadget_set(original.ROPGadgets)
+        variantROPSet = GadgetStats.get_gadget_set(variant.ROPGadgets)
         commonROPSet = originalROPSet & variantROPSet
-        self.ROPIntroducedSet = variantROPSet - commonROPSet
+        ROPIntroducedSet = variantROPSet - commonROPSet
         if len(variantROPSet) > 0:
-            self.ROPIntroductionRate = len(self.ROPIntroducedSet) / len(variantROPSet)
+            self.ROPIntroductionRate = len(ROPIntroducedSet) / len(variantROPSet)
         else:
             self.ROPIntroductionRate = 0
 
-        originalJOPSet = GadgetSet.getGadgetTypeSet(original.JOPGadgets)
-        variantJOPSet = GadgetSet.getGadgetTypeSet(variant.JOPGadgets)
+        originalJOPSet = GadgetStats.get_gadget_set(original.JOPGadgets)
+        variantJOPSet = GadgetStats.get_gadget_set(variant.JOPGadgets)
         commonJOPSet = originalJOPSet & variantJOPSet
-        self.JOPIntroducedSet = variantJOPSet - commonJOPSet
+        JOPIntroducedSet = variantJOPSet - commonJOPSet
         if len(variantJOPSet) > 0:
-            self.JOPIntroductionRate = len(self.JOPIntroducedSet) / len(variantJOPSet)
+            self.JOPIntroductionRate = len(JOPIntroducedSet) / len(variantJOPSet)
         else:
             self.JOPIntroductionRate = 0
 
-        originalCOPSet = GadgetSet.getGadgetTypeSet(original.COPGadgets)
-        variantCOPSet = GadgetSet.getGadgetTypeSet(variant.COPGadgets)
+        originalCOPSet = GadgetStats.get_gadget_set(original.COPGadgets)
+        variantCOPSet = GadgetStats.get_gadget_set(variant.COPGadgets)
         commonCOPSet = originalCOPSet & variantCOPSet
-        self.COPIntroducedSet = variantCOPSet - commonCOPSet
+        COPIntroducedSet = variantCOPSet - commonCOPSet
         if len(variantCOPSet) > 0:
-            self.COPIntroductionRate = len(self.COPIntroducedSet) / len(variantCOPSet)
+            self.COPIntroductionRate = len(COPIntroducedSet) / len(variantCOPSet)
         else:
             self.COPIntroductionRate = 0
 
-        originalSysSet = GadgetSet.getGadgetTypeSet(original.SysGadgets)
-        variantSysSet = GadgetSet.getGadgetTypeSet(variant.SysGadgets)
+        originalSysSet = GadgetStats.get_gadget_set(original.SyscallGadgets)
+        variantSysSet = GadgetStats.get_gadget_set(variant.SyscallGadgets)
         commonSysSet = originalSysSet & variantSysSet
-        self.SysIntroducedSet = variantSysSet - commonSysSet
+        sysIntroducedSet = variantSysSet - commonSysSet
         if len(variantSysSet) > 0:
-            self.SysIntroductionRate = len(self.SysIntroducedSet) / len(variantSysSet)
+            self.SysIntroductionRate = len(sysIntroducedSet) / len(variantSysSet)
         else:
             self.SysIntroductionRate = 0
-        self.SysIntroducedGadgets = variant.getGadgetsFromStrings(self.SysIntroducedSet, "SYS")
 
-        originalJOPDispatchersSet = GadgetSet.getGadgetTypeSet(original.JOPDispatchers)
-        variantJOPDispatchersSet = GadgetSet.getGadgetTypeSet(variant.JOPDispatchers)
+        originalJOPDispatchersSet = GadgetStats.get_gadget_set(original.JOPDispatchers)
+        variantJOPDispatchersSet = GadgetStats.get_gadget_set(variant.JOPDispatchers)
         commonJOPDispatchersSet = originalJOPDispatchersSet & variantJOPDispatchersSet
-        self.JOPDispatchersIntroducedSet = variantJOPDispatchersSet - commonJOPDispatchersSet
+        JOPDispatchersIntroducedSet = variantJOPDispatchersSet - commonJOPDispatchersSet
         if len(variantJOPDispatchersSet) > 0:
-            self.JOPDispatchersIntroductionRate = len(self.JOPDispatchersIntroducedSet) / len(variantJOPDispatchersSet)
+            self.JOPDispatchersIntroductionRate = len(JOPDispatchersIntroducedSet) / len(variantJOPDispatchersSet)
         else:
             self.JOPDispatchersIntroductionRate = 0
-        self.JOPDispatchersIntroducedGadgets = variant.getGadgetsFromStrings(self.JOPDispatchersIntroducedSet, "JOP")
 
-        originalJOPDataLoadersSet = GadgetSet.getGadgetTypeSet(original.JOPDataLoaders)
-        variantJOPDataLoadersSet = GadgetSet.getGadgetTypeSet(variant.JOPDataLoaders)
+        originalJOPDataLoadersSet = GadgetStats.get_gadget_set(original.JOPDataLoaders)
+        variantJOPDataLoadersSet = GadgetStats.get_gadget_set(variant.JOPDataLoaders)
         commonJOPDataLoadersSet = originalJOPDataLoadersSet & variantJOPDataLoadersSet
-        self.JOPDataLoadersIntroducedSet = variantJOPDataLoadersSet - commonJOPDataLoadersSet
+        JOPDataLoadersIntroducedSet = variantJOPDataLoadersSet - commonJOPDataLoadersSet
         if len(variantJOPDataLoadersSet) > 0:
-            self.JOPDataLoadersIntroductionRate = len(self.JOPDataLoadersIntroducedSet) / len(variantJOPDataLoadersSet)
+            self.JOPDataLoadersIntroductionRate = len(JOPDataLoadersIntroducedSet) / len(variantJOPDataLoadersSet)
         else:
             self.JOPDataLoadersIntroductionRate = 0
-        self.JOPDataLoadersIntroducedGadgets = variant.getGadgetsFromStrings(self.JOPDataLoadersIntroducedSet, "JOP")
 
-        originalJOPInitializersSet = GadgetSet.getGadgetTypeSet(original.JOPInitializers)
-        variantJOPInitializersSet = GadgetSet.getGadgetTypeSet(variant.JOPInitializers)
+        originalJOPInitializersSet = GadgetStats.get_gadget_set(original.JOPInitializers)
+        variantJOPInitializersSet = GadgetStats.get_gadget_set(variant.JOPInitializers)
         commonJOPInitializersSet = originalJOPInitializersSet & variantJOPInitializersSet
-        self.JOPInitializersIntroducedSet = variantJOPInitializersSet - commonJOPInitializersSet
+        JOPInitializersIntroducedSet = variantJOPInitializersSet - commonJOPInitializersSet
         if len(variantJOPInitializersSet) > 0:
-            self.JOPInitializersIntroductionRate = len(self.JOPInitializersIntroducedSet) / len(variantJOPInitializersSet)
+            self.JOPInitializersIntroductionRate = len(JOPInitializersIntroducedSet) / len(variantJOPInitializersSet)
         else:
             self.JOPInitializersIntroductionRate = 0
-        self.JOPInitializersIntroducedGadgets = variant.getGadgetsFromStrings(self.JOPInitializersIntroducedSet, "JOP")
 
-        originalJOPTrampolinesSet = GadgetSet.getGadgetTypeSet(original.JOPTrampolines)
-        variantJOPTrampolinesSet = GadgetSet.getGadgetTypeSet(variant.JOPTrampolines)
+        originalJOPTrampolinesSet = GadgetStats.get_gadget_set(original.JOPTrampolines)
+        variantJOPTrampolinesSet = GadgetStats.get_gadget_set(variant.JOPTrampolines)
         commonJOPTrampolinesSet = originalJOPTrampolinesSet & variantJOPTrampolinesSet
-        self.JOPTrampolinesIntroducedSet = variantJOPTrampolinesSet - commonJOPTrampolinesSet
+        JOPTrampolinesIntroducedSet = variantJOPTrampolinesSet - commonJOPTrampolinesSet
         if len(variantJOPTrampolinesSet) > 0:
-            self.JOPTrampolinesIntroductionRate = len(self.JOPTrampolinesIntroducedSet) / len(variantJOPTrampolinesSet)
+            self.JOPTrampolinesIntroductionRate = len(JOPTrampolinesIntroducedSet) / len(variantJOPTrampolinesSet)
         else:
             self.JOPTrampolinesIntroductionRate = 0
-        self.JOPTrampolinesIntroducedGadgets = variant.getGadgetsFromStrings(self.JOPTrampolinesIntroducedSet, "JOP")
 
-        originalCOPDispatchersSet = GadgetSet.getGadgetTypeSet(original.COPDispatchers)
-        variantCOPDispatchersSet = GadgetSet.getGadgetTypeSet(variant.COPDispatchers)
+        originalCOPDispatchersSet = GadgetStats.get_gadget_set(original.COPDispatchers)
+        variantCOPDispatchersSet = GadgetStats.get_gadget_set(variant.COPDispatchers)
         commonCOPDispatchersSet = originalCOPDispatchersSet & variantCOPDispatchersSet
-        self.COPDispatchersIntroducedSet = variantCOPDispatchersSet - commonCOPDispatchersSet
+        COPDispatchersIntroducedSet = variantCOPDispatchersSet - commonCOPDispatchersSet
         if len(variantCOPDispatchersSet) > 0:
-            self.COPDispatchersIntroductionRate = len(self.COPDispatchersIntroducedSet) / len(variantCOPDispatchersSet)
+            self.COPDispatchersIntroductionRate = len(COPDispatchersIntroducedSet) / len(variantCOPDispatchersSet)
         else:
             self.COPDispatchersIntroductionRate = 0
-        self.COPDispatchersIntroducedGadgets = variant.getGadgetsFromStrings(self.COPDispatchersIntroducedSet, "COP")
 
-        originalCOPDataLoadersSet = GadgetSet.getGadgetTypeSet(original.COPDataLoaders)
-        variantCOPDataLoadersSet = GadgetSet.getGadgetTypeSet(variant.COPDataLoaders)
+        originalCOPDataLoadersSet = GadgetStats.get_gadget_set(original.COPDataLoaders)
+        variantCOPDataLoadersSet = GadgetStats.get_gadget_set(variant.COPDataLoaders)
         commonCOPDataLoadersSet = originalCOPDataLoadersSet & variantCOPDataLoadersSet
-        self.COPDataLoadersIntroducedSet = variantCOPDataLoadersSet - commonCOPDataLoadersSet
+        COPDataLoadersIntroducedSet = variantCOPDataLoadersSet - commonCOPDataLoadersSet
         if len(variantCOPDataLoadersSet) > 0:
-            self.COPDataLoadersIntroductionRate = len(self.COPDataLoadersIntroducedSet) / len(variantCOPDataLoadersSet)
+            self.COPDataLoadersIntroductionRate = len(COPDataLoadersIntroducedSet) / len(variantCOPDataLoadersSet)
         else:
             self.COPDataLoadersIntroductionRate = 0
-        self.COPDataLoadersIntroducedGadgets = variant.getGadgetsFromStrings(self.COPDataLoadersIntroducedSet, "COP")
 
-        originalCOPInitializersSet = GadgetSet.getGadgetTypeSet(original.COPInitializers)
-        variantCOPInitializersSet = GadgetSet.getGadgetTypeSet(variant.COPInitializers)
+        originalCOPInitializersSet = GadgetStats.get_gadget_set(original.COPInitializers)
+        variantCOPInitializersSet = GadgetStats.get_gadget_set(variant.COPInitializers)
         commonCOPInitializersSet = originalCOPInitializersSet & variantCOPInitializersSet
-        self.COPInitializersIntroducedSet = variantCOPInitializersSet - commonCOPInitializersSet
+        COPInitializersIntroducedSet = variantCOPInitializersSet - commonCOPInitializersSet
         if len(variantCOPInitializersSet) > 0:
-            self.COPInitializersIntroductionRate = len(self.COPInitializersIntroducedSet) / len(variantCOPInitializersSet)
+            self.COPInitializersIntroductionRate = len(COPInitializersIntroducedSet) / len(variantCOPInitializersSet)
         else:
             self.COPInitializersIntroductionRate = 0
-        self.COPInitializersIntroducedGadgets = variant.getGadgetsFromStrings(self.COPInitializersIntroducedSet, "COP")
 
-        originalCOPStrongTrampolinesSet = GadgetSet.getGadgetTypeSet(original.COPStrongTrampolines)
-        variantCOPStrongTrampolinesSet = GadgetSet.getGadgetTypeSet(variant.COPStrongTrampolines)
+        originalCOPStrongTrampolinesSet = GadgetStats.get_gadget_set(original.COPStrongTrampolines)
+        variantCOPStrongTrampolinesSet = GadgetStats.get_gadget_set(variant.COPStrongTrampolines)
         commonCOPStrongTrampolinesSet = originalCOPStrongTrampolinesSet & variantCOPStrongTrampolinesSet
-        self.COPStrongTrampolinesIntroducedSet = variantCOPStrongTrampolinesSet - commonCOPStrongTrampolinesSet
+        COPStrongTrampolinesIntroducedSet = variantCOPStrongTrampolinesSet - commonCOPStrongTrampolinesSet
         if len(variantCOPStrongTrampolinesSet) > 0:
-            self.COPStrongTrampolinesIntroductionRate = len(self.COPStrongTrampolinesIntroducedSet) / len(variantCOPStrongTrampolinesSet)
+            self.COPStrongTrampolinesIntroductionRate = len(COPStrongTrampolinesIntroducedSet) / len(variantCOPStrongTrampolinesSet)
         else:
             self.COPStrongTrampolinesIntroductionRate = 0
-        self.COPStrongTrampolinesIntroducedGadgets = variant.getGadgetsFromStrings(self.COPStrongTrampolinesIntroducedSet, "COP")
 
-        originalCOPIntrastackPivotsSet = GadgetSet.getGadgetTypeSet(original.COPIntrastackPivots)
-        variantCOPIntrastackPivotsSet = GadgetSet.getGadgetTypeSet(variant.COPIntrastackPivots)
+        originalCOPIntrastackPivotsSet = GadgetStats.get_gadget_set(original.COPIntrastackPivots)
+        variantCOPIntrastackPivotsSet = GadgetStats.get_gadget_set(variant.COPIntrastackPivots)
         commonCOPIntrastackPivotsSet = originalCOPIntrastackPivotsSet & variantCOPIntrastackPivotsSet
-        self.COPIntrastackPivotsIntroducedSet = variantCOPIntrastackPivotsSet - commonCOPIntrastackPivotsSet
+        COPIntrastackPivotsIntroducedSet = variantCOPIntrastackPivotsSet - commonCOPIntrastackPivotsSet
         if len(variantCOPIntrastackPivotsSet) > 0:
-            self.COPIntrastackPivotsIntroductionRate = len(self.COPIntrastackPivotsIntroducedSet) / len(variantCOPIntrastackPivotsSet)
+            self.COPIntrastackPivotsIntroductionRate = len(COPIntrastackPivotsIntroducedSet) / len(variantCOPIntrastackPivotsSet)
         else:
             self.COPIntrastackPivotsIntroductionRate = 0
-        self.COPIntrastackPivotsIntroducedGadgets = variant.getGadgetsFromStrings(self.COPIntrastackPivotsIntroducedSet, "COP")
+
+        # Total Set
+        orig_total_set = originalROPSet | originalJOPSet | originalCOPSet | originalSysSet | \
+                         originalJOPInitializersSet | originalJOPDispatchersSet | originalJOPDataLoadersSet | \
+                         originalJOPTrampolinesSet | originalCOPStrongTrampolinesSet | originalCOPDataLoadersSet | \
+                         originalCOPInitializersSet | originalCOPDispatchersSet | originalCOPIntrastackPivotsSet
+        variant_total_set = variantROPSet | variantJOPSet | variantCOPSet | variantSysSet | \
+                            variantJOPInitializersSet | variantJOPDispatchersSet | variantJOPDataLoadersSet | \
+                            variantJOPTrampolinesSet | variantCOPStrongTrampolinesSet | variantCOPDataLoadersSet | \
+                            variantCOPInitializersSet | variantCOPDispatchersSet | variantCOPIntrastackPivotsSet
+
+        self.totalUniqueCountDiff = len(orig_total_set) - len(variant_total_set)
+        if len(orig_total_set) > 0:
+            self.totalUniqueCountReduction = self.totalUniqueCountDiff / len(orig_total_set)
+        else:
+            self.totalUniqueCountReduction = 0
+
+        self.total_sp_count_diff = original.total_sp_gadgets - variant.total_sp_gadgets
+        if original.total_sp_gadgets > 0:
+            self.total_sp_reduction = self.total_sp_count_diff / original.total_sp_gadgets
+        else:
+            self.total_sp_reduction = 0
+
+        total_common_set = orig_total_set & variant_total_set       
+        total_introduced_set = variant_total_set - total_common_set
+        if (len(variant_total_set) > 0):
+            self.totalUniqueIntroductionRate = len(total_introduced_set) / len(variant_total_set)
+        else:
+            self.totalUniqueIntroductionRate = 0
 
         # Satisfied classes count differences
-        self.simpleTuringCompleteCountDiff = int(original.simpleTuringCompleteClasses) - \
-                                             int(variant.simpleTuringCompleteClasses)
+        self.practical_ROP_exp_diff = original.practical_ROP_expressivity - variant.practical_ROP_expressivity
+        self.practical_ASLR_ROP_exp_diff = original.practical_ASLR_ROP_expressivity - variant.practical_ASLR_ROP_expressivity
+        self.turing_complete_ROP_exp_diff = original.turing_complete_ROP_expressivity - variant.turing_complete_ROP_expressivity
 
         # Calculate gadget locality
-        self.localGadgets = GadgetStats.findEqualGadgets(original.ROPGadgets, variant.ROPGadgets) +\
-                        GadgetStats.findEqualGadgets(original.JOPGadgets, variant.JOPGadgets) +\
-                        GadgetStats.findEqualGadgets(original.SysGadgets, variant.SysGadgets)
-        totalGadgets = len(variant.ROPGadgets) + len(variant.JOPGadgets) + len(variant.SysGadgets)
-        self.gadgetLocality = self.localGadgets / totalGadgets
+        localGadgets = GadgetStats.findEqualGadgets(original.allGadgets, variant.allGadgets)
+        self.gadgetLocality = localGadgets / len(variant.allGadgets)
 
-	# Calculate gadget quality
-        self.keptQualityROPCountDiff = original.keptQualityROPGadgets - variant.keptQualityROPGadgets
-        self.keptQualityJOPCountDiff = original.keptQualityJOPGadgets - variant.keptQualityJOPGadgets
-        self.keptQualityCOPCountDiff = original.keptQualityCOPGadgets - variant.keptQualityCOPGadgets
+        # Calculate gadget quality
+        self.keptQualityROPCountDiff = len(original.ROPGadgets) - len(variant.ROPGadgets)
+        self.keptQualityJOPCountDiff = len(original.JOPGadgets) - len(variant.JOPGadgets)
+        self.keptQualityCOPCountDiff = len(original.COPGadgets) - len(variant.COPGadgets)
 
         self.averageROPQualityDiff = original.averageROPQuality - variant.averageROPQuality
         self.averageJOPQualityDiff = original.averageJOPQuality - variant.averageJOPQuality
         self.averageCOPQualityDiff = original.averageCOPQuality - variant.averageCOPQuality
 
-        #self.printStats()
+        self.printStats()
 
     def printStats(self):
         rate_format = "{:.1%}"
@@ -274,85 +281,71 @@ class GadgetStats(object):
         print("Total Unique Gadgets:")
         print("Count Difference: "  + str(self.totalUniqueCountDiff))
         print("Reduction Rate: "    + rate_format.format(self.totalUniqueCountReduction))
-        print("Introduced Count: "  + str(len(self.totalUniqueIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.totalUniqueIntroductionRate))
         print("======================================================================")
         print("ROP Gadgets:")
         print("Count Difference: " + str(self.ROPCountDiff))
         print("Reduction Rate: " + rate_format.format(self.ROPCountReduction))
-        print("Introduced Count: " + str(len(self.ROPIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.ROPIntroductionRate))
         print("======================================================================")
         print("JOP Gadgets:")
         print("Count Difference: " + str(self.JOPCountDiff))
         print("Reduction Rate: " + rate_format.format(self.JOPCountReduction))
-        print("Introduced Count: " + str(len(self.JOPIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.JOPIntroductionRate))
         print("======================================================================")
         print("COP Gadgets:")
         print("Count Difference: " + str(self.COPCountDiff))
         print("Reduction Rate: " + rate_format.format(self.COPCountReduction))
-        print("Introduced Count: " + str(len(self.COPIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.COPIntroductionRate))
         print("======================================================================")
         print("Syscall Gadgets:")
         print("Count Difference: " + str(self.SysCountDiff))
         print("Reduction Rate: " + rate_format.format(self.SysCountReduction))
-        print("Introduced Count: " + str(len(self.SysIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.SysIntroductionRate))
         print("======================================================================")
         print("JOP Dispatcher Gadgets:")
         print("Count Difference: " + str(self.JOPDispatchersCountDiff))
         print("Reduction Rate: " + rate_format.format(self.JOPDispatchersCountReduction))
-        print("Introduced Count: " + str(len(self.JOPDispatchersIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.JOPDispatchersIntroductionRate))
         print("======================================================================")
         print("JOP Data Loader Gadgets:")
         print("Count Difference: " + str(self.JOPDataLoadersCountDiff))
         print("Reduction Rate: " + rate_format.format(self.JOPDataLoadersCountReduction))
-        print("Introduced Count: " + str(len(self.JOPDataLoadersIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.JOPDataLoadersIntroductionRate))
         print("======================================================================")
         print("JOP Initializer Gadgets:")
         print("Count Difference: " + str(self.JOPInitializersCountDiff))
         print("Reduction Rate: " + rate_format.format(self.JOPInitializersCountReduction))
-        print("Introduced Count: " + str(len(self.JOPInitializersIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.JOPInitializersIntroductionRate))
         print("======================================================================")
         print("JOP Trampoline Gadgets:")
         print("Count Difference: " + str(self.JOPTrampolinesCountDiff))
         print("Reduction Rate: " + rate_format.format(self.JOPTrampolinesCountReduction))
-        print("Introduced Count: " + str(len(self.JOPTrampolinesIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.JOPTrampolinesIntroductionRate))
         print("======================================================================")
         print("COP Dispatcher Gadgets:")
         print("Count Difference: " + str(self.COPDispatchersCountDiff))
         print("Reduction Rate: " + rate_format.format(self.COPDispatchersCountReduction))
-        print("Introduced Count: " + str(len(self.COPDispatchersIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.COPDispatchersIntroductionRate))
         print("======================================================================")
         print("COP Data Loader Gadgets:")
         print("Count Difference: " + str(self.COPDataLoadersCountDiff))
         print("Reduction Rate: " + rate_format.format(self.COPDataLoadersCountReduction))
-        print("Introduced Count: " + str(len(self.COPDataLoadersIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.COPDataLoadersIntroductionRate))
         print("======================================================================")
         print("COP Initializer Gadgets:")
         print("Count Difference: " + str(self.COPInitializersCountDiff))
         print("Reduction Rate: " + rate_format.format(self.COPInitializersCountReduction))
-        print("Introduced Count: " + str(len(self.COPInitializersIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.COPInitializersIntroductionRate))
         print("======================================================================")
         print("COP Strong Trampoline Gadgets:")
         print("Count Difference: " + str(self.COPStrongTrampolinesCountDiff))
         print("Reduction Rate: " + rate_format.format(self.COPStrongTrampolinesCountReduction))
-        print("Introduced Count: " + str(len(self.COPStrongTrampolinesIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.COPStrongTrampolinesIntroductionRate))
         print("======================================================================")
         print("COP Intrastack Pivot Gadgets:")
         print("Count Difference: " + str(self.COPIntrastackPivotsCountDiff))
         print("Reduction Rate: " + rate_format.format(self.COPIntrastackPivotsCountReduction))
-        print("Introduced Count: " + str(len(self.COPIntrastackPivotsIntroducedSet)))
         print("Introduction Rate: " + rate_format.format(self.COPIntrastackPivotsIntroductionRate))
         print("======================================================================")
         print("ROP Gadget Quality:")
@@ -364,12 +357,35 @@ class GadgetStats(object):
         print("COP Gadget Quality:")
         print("COP Count Difference: " + str(self.keptQualityCOPCountDiff))
         print("COP Average Quality Difference: " + str(self.averageCOPQualityDiff))
+        print("======================================================================")
+        print("ROP Expressivity:")
+        print("Practical ROP Exploit Difference: " + str(self.practical_ROP_exp_diff))
+        print("Practical ASLR-Proof ROP Exploit Difference: " + str(self.practical_ASLR_ROP_exp_diff))
+        print("Simple Turing Complete ROP Exploit Difference: " + str(self.turing_complete_ROP_exp_diff))
+        print("======================================================================")
+        print("Gadget Locality for all gadgets: " + rate_format.format(self.gadgetLocality))
+
 
     @staticmethod
-    def findEqualGadgets(originalList, variantList):
-        equalGadgets = 0
-        for originalGadget in originalList:
-            for variantGadget in variantList:
-                if Gadget.gadgetsEqual(originalGadget, variantGadget):
-                    equalGadgets += 1
-        return equalGadgets
+    def findEqualGadgets(original_set, variant_set):
+        equal_cnt = 0
+        for originalGadget in original_set:
+            for variantGadget in variant_set:
+                if originalGadget.is_equal(variantGadget):
+                    equal_cnt += 1
+        return equal_cnt
+
+    @staticmethod
+    def get_gadget_set(gadget_list):
+        """
+        Static method for generating a set of gadget strings suitable for performing set operations.
+        :param Gadget[] gadget_list: A list of Gadget objects
+        :return: A set of gadget strings suitable for performing set arithmetic
+        """
+        gadget_set = set()
+
+        for gadget in gadget_list:
+            gadget_set.add(gadget.instruction_string)
+
+        return gadget_set
+
