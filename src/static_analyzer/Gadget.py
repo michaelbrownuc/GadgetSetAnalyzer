@@ -107,12 +107,12 @@ class Gadget(object):
 
     def is_invalid_branch(self):
         """
-        :return boolean: Returns True if the gadget is 'call' ending and the call target is a constant offset
-                         False otherwise
+        :return boolean: Returns True if the gadget is 'jmp' or 'call' ending and the call target is a constant offset
+                         or does not target a recognized register family. False otherwise
         """
         last_instr = self.instructions[len(self.instructions)-1]
         if last_instr.opcode.startswith("call") or last_instr.opcode.startswith("jmp"):
-            if Instruction.is_constant(last_instr.op1):
+            if Instruction.get_operand_register_family(last_instr.op1) is None:
                 return True
         return False
 
@@ -238,15 +238,13 @@ class Gadget(object):
                 if cur_instr.op1 in Instruction.register_families[family]:
                     # Does the instruction zeroize out the target?
                     if cur_instr.opcode == "xor" and cur_instr.op1 == cur_instr.op2:
-                            return True
+                        return True
                     # Does the instruction perform a RIP-relative LEA into the target?
                     if cur_instr.opcode == "lea" and ("rip" in cur_instr.op2 or "eip" in cur_instr.op2):
                         return True
-
                     # Does the instruction load a string or a value of an input port into the target?
                     if cur_instr.opcode.startswith("lods") or cur_instr.opcode == "in":
                         return True
-
                     # Does the instruction overwrite the target with a static value or segment register value?
                     if "mov" in cur_instr.opcode and (Instruction.is_constant(cur_instr.op2) or
                                                       Instruction.get_operand_register_family(cur_instr.op2) is None):

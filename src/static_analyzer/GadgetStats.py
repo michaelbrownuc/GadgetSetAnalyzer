@@ -14,15 +14,16 @@ from static_analyzer.Gadget import Gadget
 class GadgetStats(object):
     """
     The Gadget Stats class represents data resulting from the comparison of an original package's gadget set to the
-    gadget set of its debloated variant.
+    gadget set of its transformed variant.
     """
 
-    def __init__(self, original, variant, output_console):
+    def __init__(self, original, variant, output_console, output_locality):
         """
         GadgetStats constructor
         :param GadgetSet original: Gadget Set from the original package
         :param GadgetSet variant: Gadget Set from the variant package
         :param boolean output_console: Indicates whether or not to print info when computed
+        :param boolean output_locality: Indicates whether or not to calculate gadget locality, which is CPU intensive
         """
         self.original = original
         self.variant = variant
@@ -262,8 +263,11 @@ class GadgetStats(object):
         self.turing_complete_ROP_exp_diff = original.turing_complete_ROP_expressivity - variant.turing_complete_ROP_expressivity
 
         # Calculate gadget locality
-        local_gadgets = GadgetStats.findEqualGadgets(original.allGadgets, variant.allGadgets)
-        self.gadgetLocality = local_gadgets / len(variant.allGadgets)
+        if output_locality:
+            local_gadgets = GadgetStats.findEqualGadgets(original.allGadgets, variant.allGadgets)
+            self.gadgetLocality = local_gadgets / len(variant.allGadgets)
+        else:
+            self.gadgetLocality = 0.0
 
         # Calculate gadget quality
         self.keptQualityROPCountDiff = len(original.ROPGadgets) - len(variant.ROPGadgets)
@@ -277,9 +281,9 @@ class GadgetStats(object):
         self.total_average_quality_diff = original.average_functional_quality - variant.average_functional_quality
 
         if output_console:
-            self.printStats()
+            self.printStats(output_locality)
 
-    def printStats(self):
+    def printStats(self, output_locality):
         rate_format = "{:.1%}"
         print("======================================================================")
         print("Gadget Stats for " + self.name)
@@ -369,7 +373,8 @@ class GadgetStats(object):
         print("Practical ASLR-Proof ROP Exploit Difference: " + str(self.practical_ASLR_ROP_exp_diff))
         print("Simple Turing Complete ROP Exploit Difference: " + str(self.turing_complete_ROP_exp_diff))
         print("======================================================================")
-        print("Gadget Locality for all gadgets: " + rate_format.format(self.gadgetLocality))
+        if output_locality:
+            print("Gadget Locality for all gadgets: " + rate_format.format(self.gadgetLocality))
 
 
     @staticmethod

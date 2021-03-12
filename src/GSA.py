@@ -28,11 +28,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("original", help="Original program binary.", type=str)
 parser.add_argument("variants", help="Python dictionary of variant names and relative paths.  Example: '{<variant_name>:<file_path>, ...}' ", type=str)
 parser.add_argument("--output_metrics", help="Output metric data as a CSV file.", action='store_true')
-parser.add_argument("--output_addresses", help="Output addresses of sensitive gadgets as a CSV file. Ignored if --output_metrics is not specified", action='store_true')
+parser.add_argument("--output_addresses", help="Output addresses of sensitive gadgets as a CSV file. Ignored if --output_metrics is not specified.", action='store_true')
 parser.add_argument("--output_tables", help="Output metric data as tables in LaTeX format. Ignored if --output_metrics is not specified. If specified, provide a row label, such as the program name.", action='store', type=str, default='')
 parser.add_argument("--result_folder_name", help="Optionally specifies a specific output file name for the results folder.", action="store", type=str)
 parser.add_argument("--original_name", help="Optionally specifies a specific name for the 'original' binary.", action="store", type=str, default="Original")
 parser.add_argument("--output_console", help="Output gadget set and comparison data to console.", action="store_true")
+parser.add_argument("--output_locality", help="Output gadget locality metric as a CSV file. Ignored if --output_metrics is not specified.", action='store_true')
 args = parser.parse_args()
 
 variants_dict = eval(args.variants)
@@ -50,7 +51,7 @@ if not args.output_metrics:
         print("Analyzing variant package [" + key + "] located at: " + filepath)
 
         variant = GadgetSet(key, filepath, args.output_addresses, args.output_console)
-        stat = GadgetStats(original, variant, args.output_console)
+        stat = GadgetStats(original, variant, args.output_console, args.output_locality)
 
 # Prepare output lines for files
 else:
@@ -166,7 +167,7 @@ else:
         print("Analyzing variant package [" + key + "] located at: " + filepath)
 
         variant = GadgetSet(key, filepath, args.output_addresses, args.output_console)
-        stat = GadgetStats(original, variant, args.output_console)
+        stat = GadgetStats(original, variant, args.output_console, args.output_locality)
 
         # Output file 1 variant lines
         stat_counts = variant.name + "," + str(variant.total_unique_gadgets) + " (" + str(stat.totalUniqueCountDiff) + "; " + rate_format.format(stat.totalUniqueCountReduction) + "),"
@@ -242,8 +243,9 @@ else:
         file_5_lines.append(stat_counts)
 
         # Output file 6 variant lines
-        stat_locality = variant.name + "," + rate_format.format(stat.gadgetLocality) + "\r"
-        file_6_lines.append(stat_locality)
+        if args.output_locality:
+            stat_locality = variant.name + "," + rate_format.format(stat.gadgetLocality) + "\r"
+            file_6_lines.append(stat_locality)
 
         # Output file 7 variant lines
         stat_quality = variant.name + "," + str(len(variant.ROPGadgets)) + " (" + str(stat.keptQualityROPCountDiff) + "),"
@@ -310,9 +312,10 @@ else:
         file.close()
 
         # Output file 6
-        file = open(directory_name + "/Gadget Locality.csv", "w")
-        file.writelines(file_6_lines)
-        file.close()
+        if args.output_locality:
+            file = open(directory_name + "/Gadget Locality.csv", "w")
+            file.writelines(file_6_lines)
+            file.close()
 
         # Output file 7
         file = open(directory_name + "/Gadget Quality.csv", "w")

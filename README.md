@@ -39,12 +39,13 @@ To install GSA:
 ## Running
 GSA has the following optional inputs:
 
- 1. Output Metrics (--output_metrics): Indicates that GSA should produce output files 1-7.
+ 1. Output Metrics (--output_metrics): Indicates that GSA should produce output files 1-5 and 7.
  2. Output Addresses (--output_addresses): Indicates that GSA should produce output file 8. Ignored if output_metrics is not set. Takes extra time to use angr.
  3. Result Folder Name (--result_folder_name <name>): Indicates that GSA should place results for the run in results/<name> 
  4. Original Name (--original_name <name>): Indicates that GSA should use a specific <name> in the output for the original binary.
  5. Output Console (--output_console): Indicates that GSA should output gadget set and comparison data to the console.
- 6. Output Tables (--output_tables): Indicates that GSA should produce output file 9. Ignored if output_metrics is not set. 
+ 6. Output Tables (--output_tables): Indicates that GSA should produce output file 9. Ignored if output_metrics is not set.
+ 7. Output Gadget Locality (--output_locality): Indicates that GSA should produce output file 6. Ignored if output_metrics is not set. Takes extra time.
 
 The analyzer has 2 required inputs:
 
