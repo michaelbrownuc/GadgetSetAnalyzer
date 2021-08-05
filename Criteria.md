@@ -35,9 +35,13 @@ This file contains reference information on the criteria GSA uses to (1) elimina
 ### ROP only
   1. (+2.0) Gadget contains intermediate leave instruction
   2. (+2.0) Gadget's cumulative stack pointer offsets are negative
-  3. 
+  3. (+4.0) Gadget has intermediate instruction that performs move, exhange, or load address operation on RSP/ESP
+  4. (+3.0) Gadget has intermediate instruction that performs shift/rotate operation on RSP/ESP
+  5. (+1.0) Gadget has intermediate instruction that pops stack value into RSP/ESP
+  6. (+2.0) Gadget has intermediate instruction that performs any other static operation on RSP/ESP 
   
-### JOP only
+### JOP/COP only
+  1. (+3.0) Gadget has intermediate instruction that performs shift/rotate operation on the register targeted by the GPI
+  2. (+2.0) Gadget has intermediate instruction that performs any other static operation on the register targeted by the GPI
   
-### COP only
-
+  
