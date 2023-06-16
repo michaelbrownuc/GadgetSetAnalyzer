@@ -1,5 +1,5 @@
 # GSA Gadget Criteria Reference
-This file contains reference information on the criteria GSA uses to (1) eliminate gadgets from consideration in the set and (2) score the remaining gadgets in theset for qaulity. 
+This file contains reference information on the criteria GSA uses to (1) eliminate gadgets from consideration in the set and (2) score the remaining gadgets in theset for quality.
 
 
 ## Elimination Criteria

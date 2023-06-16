@@ -44,8 +44,9 @@ GSA has the following optional inputs:
  3. Result Folder Name (--result_folder_name <name>): Indicates that GSA should place results for the run in results/<name> 
  4. Original Name (--original_name <name>): Indicates that GSA should use a specific <name> in the output for the original binary.
  5. Output Console (--output_console): Indicates that GSA should output gadget set and comparison data to the console.
- 6. Output Tables (--output_tables): Indicates that GSA should produce output file 9. Ignored if output_metrics is not set.
- 7. Output Gadget Locality (--output_locality): Indicates that GSA should produce output file 6. Ignored if output_metrics is not set. Takes extra time.
+ 6. Output Tables (--output_tables): Indicates that GSA should produce output file 9. Ignored if --output_metrics is not set.
+ 7. Output Gadget Locality (--output_locality): Indicates that GSA should produce output file 6. Ignored if --output_metrics is not set. Takes extra time.
+ 8. Output Simplified Metrics (--output_simple): Indicates that GSA should produce a simplified version of outputs useful for determining security improvements. Ignored if --output_metrics is not set.
 
 The analyzer has 2 required inputs:
 
