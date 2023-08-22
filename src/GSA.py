@@ -28,7 +28,11 @@ LINE_SEP= "\n" # line separator
 # Parse Arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("original", help="Original program binary.", type=str)
-parser.add_argument("variants", help="Python dictionary of variant names and relative paths.  Example: '{<variant_name>:<file_path>, ...}' ", type=str)
+parser.add_argument("--variants", 
+                    metavar="VARIANT=PATH",
+                    nargs='+',
+                    help="Sequence of variant names and variant paths.  Example: <variant_name1>=<file_path1> <variant_name1>=<file_path1>' ",
+                    type=str)
 parser.add_argument("--output_metrics", help="Output metric data as a CSV file.", action='store_true')
 parser.add_argument("--output_addresses", help="Output addresses of sensitive gadgets as a CSV file. Ignored if --output_metrics is not specified.", action='store_true')
 parser.add_argument("--output_tables", help="Output metric data as tables in LaTeX format. Ignored if --output_metrics is not specified. If specified, provide a row label, such as the program name.", action='store', type=str, default='')
@@ -39,7 +43,13 @@ parser.add_argument("--output_locality", help="Output gadget locality metric as 
 parser.add_argument("--output_simple", help="Output simplified version of results in single file. Ignored if --output_metrics is not specified.", action='store_true')
 args = parser.parse_args()
 
-variants_dict = eval(args.variants)
+variants_dict = {}
+for variant in args.variants:
+    parts = variant.split("=")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        print("Error: variants are not in proper format")
+        exit(1)
+    variants_dict[parts[0]] = parts[1]
 
 print("Starting Gadget Set Analyzer")
 

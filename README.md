@@ -51,9 +51,9 @@ GSA has the following optional inputs:
 The analyzer has 2 required inputs:
 
  1. Original Binary: Filepath to the original binary.
- 2. Variant Labels / Binaries: Python dictionary consisting of variant names and filepaths to their binaries.
+ 2. Variant Labels / Binaries: A sequence of variant labels and paths in the format `--variants label1=path1 label2=path2`
 
 Example invocation:
 ```
-python3 GSA.py --output_metrics --output_addresses ../samples/CHISEL/date/date-8.21.origin "{'Aggressive':'../samples/CHISEL/date/date-8.21.reduced'}"
+python3 GSA.py --output_metrics --output_addresses ../samples/CHISEL/date/date-8.21.origin --variants Aggressive="../samples/CHISEL/date/date-8.21.reduced"
 ```
