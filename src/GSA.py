@@ -189,7 +189,7 @@ else:
             stat_metrics = stat_metrics + str(stat.total_average_quality_diff) + ","
             stat_metrics = stat_metrics + rate_format.format(stat.gadgetLocality) + ","
             stat_metrics = stat_metrics + str(stat.total_sp_type_reduction) + ","
-            stat_metrics = stat_metrics + str(len(variant.SyscallGadgets)) + LINE_SEP
+            stat_metrics = stat_metrics + str(stat.SysCountDiff) + LINE_SEP
             simple_lines.append(stat_metrics)
 
         else:
