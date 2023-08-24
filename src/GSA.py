@@ -24,6 +24,7 @@ from static_analyzer.GadgetSet import GadgetSet
 from static_analyzer.GadgetStats import GadgetStats
 
 LINE_SEP= "\n" # line separator
+ROUND_DIGITS = 2
 
 # Parse Arguments
 parser = argparse.ArgumentParser()
@@ -87,7 +88,7 @@ else:
     if args.output_simple:
         simple_lines = ["Variant Name,Expressivity,Quality,Locality,S.P. Types,Syscall Available" + LINE_SEP]
         orig_metrics = original.name + "," + str(original.practical_ROP_expressivity) + ","
-        orig_metrics = orig_metrics + str(original.average_functional_quality) + ","
+        orig_metrics = orig_metrics + float_format.format(original.average_functional_quality) + ","
         orig_metrics = orig_metrics + "NA,"
         orig_metrics = orig_metrics + str(original.total_sp_types) + ","
         orig_metrics = orig_metrics + str(len(original.SyscallGadgets)) + LINE_SEP
@@ -197,8 +198,8 @@ else:
         # Prepare simplified file output for original if indicated
         if args.output_simple:
             stat_metrics = variant.name + "," + str(stat.practical_ROP_exp_diff) + ","
-            stat_metrics = stat_metrics + str(stat.total_average_quality_diff) + ","
-            stat_metrics = stat_metrics + rate_format.format(stat.gadgetLocality) + ","
+            stat_metrics = stat_metrics + float_format.format(stat.total_average_quality_diff) + ","
+            stat_metrics = stat_metrics + fmt_percent_keep_nonzero(stat.gadgetLocality, ROUND_DIGITS) + ","
             stat_metrics = stat_metrics + str(stat.total_sp_type_reduction) + ","
             stat_metrics = stat_metrics + str(stat.SysCountDiff) + LINE_SEP
             simple_lines.append(stat_metrics)
