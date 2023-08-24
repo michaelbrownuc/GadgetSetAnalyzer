@@ -267,7 +267,7 @@ class GadgetStats(object):
             local_gadgets = GadgetStats.findEqualGadgets(original.allGadgets, variant.allGadgets)
             self.gadgetLocality = local_gadgets / len(variant.allGadgets)
         else:
-            self.gadgetLocality = 0.0
+            self.gadgetLocality = None
 
         # Calculate gadget quality
         self.keptQualityROPCountDiff = len(original.ROPGadgets) - len(variant.ROPGadgets)

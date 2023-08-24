@@ -42,6 +42,7 @@ parser.add_argument("--output_console", help="Output gadget set and comparison d
 parser.add_argument("--output_locality", help="Output gadget locality metric as a CSV file. Ignored if --output_metrics is not specified.", action='store_true')
 parser.add_argument("--output_simple", help="Output simplified version of results in single file. Ignored if --output_metrics is not specified.", action='store_true')
 args = parser.parse_args()
+args.output_locality = args.output_locality or args.output_simple # enable locality if output_simple because output_simple uses locality
 
 variants_dict = {}
 for variant in args.variants:
