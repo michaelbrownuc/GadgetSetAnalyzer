@@ -379,12 +379,10 @@ class GadgetStats(object):
 
     @staticmethod
     def findEqualGadgets(original_set, variant_set):
-        equal_cnt = 0
-        for originalGadget in original_set:
-            for variantGadget in variant_set:
-                if originalGadget.is_equal(variantGadget):
-                    equal_cnt += 1
-        return equal_cnt
+        original_set_set = set(repr(x) for x in original_set)
+        variant_set_set = set(repr(x) for x in variant_set)
+        equal = original_set_set.intersection(variant_set_set)
+        return len(equal)
 
     @staticmethod
     def get_gadget_set(gadget_list):
