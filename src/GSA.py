@@ -24,7 +24,6 @@ from static_analyzer.GadgetSet import GadgetSet
 from static_analyzer.GadgetStats import GadgetStats
 
 LINE_SEP= "\n" # line separator
-ROUND_DIGITS = 2
 
 # Parse Arguments
 parser = argparse.ArgumentParser()
@@ -199,7 +198,7 @@ else:
         if args.output_simple:
             stat_metrics = variant.name + "," + str(stat.practical_ROP_exp_diff) + ","
             stat_metrics = stat_metrics + float_format.format(stat.total_average_quality_diff) + ","
-            stat_metrics = stat_metrics + fmt_percent_keep_nonzero(stat.gadgetLocality, ROUND_DIGITS) + ","
+            stat_metrics = stat_metrics + fmt_percent_keep_precision(stat.gadgetLocality) + "," # do not round locality
             stat_metrics = stat_metrics + str(stat.total_sp_type_reduction) + ","
             stat_metrics = stat_metrics + str(stat.SysCountDiff) + LINE_SEP
             simple_lines.append(stat_metrics)
@@ -280,7 +279,7 @@ else:
 
             # Output file 6 variant lines
             if args.output_locality:
-                stat_locality = variant.name + "," + rate_format.format(stat.gadgetLocality) + LINE_SEP
+                stat_locality = variant.name + "," + fmt_percent_keep_precision(stat.gadgetLocality) + LINE_SEP
                 file_6_lines.append(stat_locality)
 
             # Output file 7 variant lines
