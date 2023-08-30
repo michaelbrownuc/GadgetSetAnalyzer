@@ -265,7 +265,8 @@ class GadgetStats(object):
         # Calculate gadget locality
         if output_locality:
             local_gadgets = GadgetStats.findEqualGadgets(original.allGadgets, variant.allGadgets)
-            self.gadgetLocality = local_gadgets / len(variant.allGadgets)
+            unique_all_gadgets = len(set(repr(gadget) for gadget in variant.allGadgets))
+            self.gadgetLocality = local_gadgets / unique_all_gadgets
         else:
             self.gadgetLocality = None
 
