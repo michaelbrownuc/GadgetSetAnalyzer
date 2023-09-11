@@ -28,6 +28,7 @@ The static analyzer is dependent upon the following third party packages:
 
  1. ROPgadget - for collecting gadget based information from binaries.
  2. angr - for finding source code functions associated with introduced gadgets.
+ 3. numpy - for calculating some final statistics
 
 ## Installing
 To install GSA:
