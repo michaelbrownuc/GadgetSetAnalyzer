@@ -265,9 +265,10 @@ class GadgetStats(object):
         # Calculate gadget locality
         if output_locality:
             local_gadgets = GadgetStats.findEqualGadgets(original.allGadgets, variant.allGadgets)
-            self.gadgetLocality = local_gadgets / len(variant.allGadgets)
+            unique_all_gadgets = len(set(repr(gadget) for gadget in variant.allGadgets))
+            self.gadgetLocality = local_gadgets / unique_all_gadgets
         else:
-            self.gadgetLocality = 0.0
+            self.gadgetLocality = None
 
         # Calculate gadget quality
         self.keptQualityROPCountDiff = len(original.ROPGadgets) - len(variant.ROPGadgets)
@@ -379,12 +380,10 @@ class GadgetStats(object):
 
     @staticmethod
     def findEqualGadgets(original_set, variant_set):
-        equal_cnt = 0
-        for originalGadget in original_set:
-            for variantGadget in variant_set:
-                if originalGadget.is_equal(variantGadget):
-                    equal_cnt += 1
-        return equal_cnt
+        original_set_set = set(repr(x) for x in original_set)
+        variant_set_set = set(repr(x) for x in variant_set)
+        equal = original_set_set.intersection(variant_set_set)
+        return len(equal)
 
     @staticmethod
     def get_gadget_set(gadget_list):

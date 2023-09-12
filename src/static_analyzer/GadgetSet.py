@@ -4,6 +4,8 @@ Gadget Set Class
 
 # Standard Library Imports
 import subprocess
+from pathlib import Path
+import os
 
 # Third Party Imports
 import angr
@@ -27,6 +29,8 @@ class GadgetSet(object):
         :param boolean createCFG: whether or not to use angr to create a CFG.
         :param boolean output_console: Indicates whether or not to print info when computed
         """
+        if not Path(os.path.expanduser(filepath)).exists():
+            raise FileNotFoundError(filepath)
         self.name = name
         self.cnt_rejected = 0
         self.cnt_duplicate = 0

@@ -8,6 +8,7 @@ from datetime import datetime
 import os
 
 # Third Party Imports
+from numpy import format_float_positional
 
 # Local Imports
 
@@ -28,3 +29,13 @@ def create_output_directory(prefix, timestamp=True):
         directory_name = prefix
     os.makedirs(directory_name)
     return directory_name
+
+def fmt_percent_keep_precision(num):
+    """
+    Format a number to be a percent, without rounding
+    :param float num: Number to format
+    :rtype str
+    """
+    num *= 100
+    formatted = format_float_positional(num, precision=None, unique=True)
+    return f"{formatted}%"

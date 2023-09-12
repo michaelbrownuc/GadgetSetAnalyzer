@@ -16,7 +16,7 @@ GSA is an automated tool for gathering security-oriented data on the effects of 
  1. Functional Gadget Set Expressivity Change: The change in gadget set expressivity (ROP) between the original package and each variant.
  2. Gadget Count Reduction: The change in overall gadget count between the original package and each variant.
  3. Gadget Introduction: The rate at which new gadgets are introduced by software transformation.
- 4. Special Purpose Gadget Count Reduction: Same as 2, but for sepcial purpose gadgets.
+ 4. Special Purpose Gadget Count Reduction: Same as 2, but for special purpose gadgets.
  5. Special Purpose Gadget Introduction: Same as 3, but for special purpose gadgets.
  6. Gadget Locality: The percentage of gadgets in a variant set that are also in present in the original set and also at the same offset.
  7. Functional Gadget Set Quality Change: The change in quality (as measured by ease of use and the absence of side constraints) of the gadget set between the original package and each variant.
@@ -28,13 +28,15 @@ The static analyzer is dependent upon the following third party packages:
 
  1. ROPgadget - for collecting gadget based information from binaries.
  2. angr - for finding source code functions associated with introduced gadgets.
+ 3. numpy - for calculating some final statistics
 
 ## Installing
 To install GSA:
 
  1. Install ROPgadget (https://github.com/JonathanSalwan/ROPgadget)
  2. Install angr (https://docs.angr.io/introductory-errata/install)
- 3. Clone this repo
+ 3. Install numpy: `pip install numpy`
+ 4. Clone this repo
 
 ## Running
 GSA has the following optional inputs:
@@ -51,9 +53,9 @@ GSA has the following optional inputs:
 The analyzer has 2 required inputs:
 
  1. Original Binary: Filepath to the original binary.
- 2. Variant Labels / Binaries: Python dictionary consisting of variant names and filepaths to their binaries.
+ 2. Variant Labels / Binaries: A sequence of variant labels and paths in the format `--variants label1=path1 label2=path2`
 
 Example invocation:
 ```
-python3 GSA.py --output_metrics --output_addresses ../samples/CHISEL/date/date-8.21.origin "{'Aggressive':'../samples/CHISEL/date/date-8.21.reduced'}"
+python3 GSA.py --output_metrics --output_addresses ../samples/CHISEL/date/date-8.21.origin --variants Aggressive="../samples/CHISEL/date/date-8.21.reduced"
 ```

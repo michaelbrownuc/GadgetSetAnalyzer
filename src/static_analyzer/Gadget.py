@@ -281,12 +281,16 @@ class Gadget(object):
                 return True
 
         return False
+    
+    def __repr__(self):
+        # Two gadgets are the same if they have the same offset and instruction string
+        return f"Gadget(offset: {self.offset}, instructions: {self.instruction_string})"
 
     def is_equal(self, rhs):
         """
-        :return boolean: Returns True if the gadgets are an exact match, including offset. Used for gadget locality.
+        :return boolean: Returns True if the gadgets are an exact match, including offset.
         """
-        return self.offset == rhs.offset and self.instruction_string == rhs.instruction_string
+        return repr(self) == repr(rhs)
 
     def is_duplicate(self, rhs):
         """
