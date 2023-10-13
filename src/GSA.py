@@ -27,7 +27,7 @@ LINE_SEP= "\n" # line separator
 
 # Parse Arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("original", help="Original program binary.", type=str)
+parser.add_argument("original", help="Original program binary or directory of binaries.", type=str)
 parser.add_argument("--variants", 
                     metavar="VARIANT=PATH",
                     nargs='+',

@@ -29,14 +29,27 @@ class GadgetSet(object):
         :param boolean createCFG: whether or not to use angr to create a CFG.
         :param boolean output_console: Indicates whether or not to print info when computed
         """
-        if not Path(os.path.expanduser(filepath)).exists():
+
+        # Determine how many binaries will make up the gadget set
+        self.binaries = []
+        self.binary_path = Path(os.path.expanduser(filepath))
+        if not self.binary_path.exists():
             raise FileNotFoundError(filepath)
+        elif os.path.isfile(self.binary_path):
+            self.binaries.append(filepath)
+        elif os.path.isdir(self.binary_path):
+            # Walk the directory and add all files to list of binaries.
+            for fp in os.listdir(self.binary_path):
+                full_fp = os.path.join(self.binary_path, fp)
+                if os.path.isfile(full_fp):
+                    self.binaries.append(full_fp)
+
         self.name = name
         self.cnt_rejected = 0
         self.cnt_duplicate = 0
 
         # Init the CFG with angr for finding functions
-        if createCFG:
+        if createCFG and len(self.binaries) == 1:
             try:
                 proj = angr.Project(filepath, main_opts={'base_addr': 0}, load_options={'auto_load_libs': False})
                 self.cfg = proj.analyses.CFG()
@@ -74,7 +87,8 @@ class GadgetSet(object):
         self.average_functional_quality = 0.0
 
         # Run ROPgadget to populate total gadget set (includes duplicates and multi-branch gadgets)
-        self.parse_gadgets(GadgetSet.runROPgadget(filepath, "--all --multibr"))
+        for fp in self.binaries:
+            self.parse_gadgets(fp, GadgetSet.runROPgadget(fp, "--all --multibr"))
 
         # Reject unusable gadgets, sort gadgets into their appropriate category sets, score gadgets
         for gadget in self.allGadgets:
@@ -177,7 +191,7 @@ class GadgetSet(object):
         print(" ASLR-proof Prac ROP - Expressivity: " + str(self.practical_ASLR_ROP_expressivity))
         print(" Simple Turing Complete - Expressivity: " + str(self.turing_complete_ROP_expressivity))
 
-    def parse_gadgets(self, output):
+    def parse_gadgets(self, filepath, output):
         """
         Converts raw ROPgadget output into a list of Gadget objects.
         :param str output: Plain text output from run of ROPgadget
@@ -193,7 +207,7 @@ class GadgetSet(object):
                     line.startswith("Unique gadgets found"):
                 continue
             else:
-                self.allGadgets.append(Gadget(line))
+                self.allGadgets.append(Gadget(filepath, line))
 
     @staticmethod
     def runROPgadget(filepath, flags):

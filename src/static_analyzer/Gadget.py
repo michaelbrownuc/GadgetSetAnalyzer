@@ -15,11 +15,14 @@ class Gadget(object):
     The Gadget class represents a single gadget.
     """
 
-    def __init__(self, raw_gadget):
+    def __init__(self, binary_name, raw_gadget):
         """
         Gadget constructor
+        :param str binary_name: name of the binary the gadget is sourced from.
         :param str raw_gadget: raw line output from ROPgadget
         """
+
+        self.binary_name = binary_name
 
         # Parse the raw line
         self.offset = raw_gadget[:raw_gadget.find(":")]
@@ -284,7 +287,7 @@ class Gadget(object):
     
     def __repr__(self):
         # Two gadgets are the same if they have the same offset and instruction string
-        return f"Gadget(offset: {self.offset}, instructions: {self.instruction_string})"
+        return f"Gadget(binary: {self.binary_name}, offset: {self.offset}, instructions: {self.instruction_string})"
 
     def is_equal(self, rhs):
         """
