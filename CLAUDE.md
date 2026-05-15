@@ -48,7 +48,7 @@ The pipeline is: binary → ROPgadget → `GadgetSet` → `GadgetStats` → outp
 
 ## Key Domain Concepts
 
-**GPI** (Gadget Pivot Instruction): the terminal instruction that transfers control — `ret` (ROP), `jmp` (JOP), `call` (COP), `syscall`/`int 0x80` (Syscall).
+**GPI** (Gadget Producing Instruction): the terminal instruction that transfers control — `ret` (ROP), `jmp` (JOP), `call` (COP), `syscall`/`int 0x80` (Syscall).
 
 **Register families**: Registers are grouped by their architectural base (e.g., rax/eax/ax/al/ah = family 0, rsp/esp/sp/spl = family 7). Family lookups drive most classification and scoring logic.
 
